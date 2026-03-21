@@ -9,11 +9,12 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════
-     PANTALLA 1: LOBBY
-═══════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════
+     PANTALLA 1 · LOBBY
+═══════════════════════════════════════ -->
 <div id="screenLobby" class="screen">
   <div class="lobby-wrap">
+
     <div class="lobby-header">
       <div class="lobby-suits">
         <span class="ls oros">◉</span>
@@ -47,12 +48,14 @@
         <span>Modo prueba (ver ambas manos)</span>
       </label>
     </div>
+
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════
-     PANTALLA 2: MESA DE JUEGO
-═══════════════════════════════════════════════ -->
+
+<!-- ═══════════════════════════════════════
+     PANTALLA 2 · MESA DE JUEGO
+═══════════════════════════════════════ -->
 <div id="screenGame" class="screen hidden">
 
   <!-- HUD superior -->
@@ -61,7 +64,7 @@
       <span id="hudRoom" class="hud-pill">—</span>
       <span id="hudSeat" class="hud-pill">—</span>
     </div>
-    <div class="hud-score">
+    <div class="hud-center">
       <span id="hudScore0" class="hud-score-num">0</span>
       <span class="hud-score-sep">·</span>
       <span id="hudScore1" class="hud-score-num">0</span>
@@ -72,18 +75,23 @@
     </div>
   </div>
 
-  <!-- MESA PRINCIPAL -->
+  <!-- Barra de timer de turno -->
+  <div id="turnTimerBar">
+    <div id="turnTimerFill"></div>
+  </div>
+
+  <!-- MESA -->
   <div id="table">
 
-    <!-- Zona rival (arriba) -->
+    <!-- Rival (arriba) -->
     <div id="rivalZone">
-      <div id="rivalName" class="player-name rival-name">—</div>
-      <div id="rivalCards" class="rival-cards"></div>
+      <div id="rivalName" class="player-name">—</div>
+      <div id="rivalCards" class="rival-cards" data-count="0"></div>
     </div>
 
-    <!-- Centro de la mesa: bazas jugadas -->
+    <!-- Centro: cartas jugadas + historial -->
     <div id="centerZone">
-      <div id="trickArea" class="trick-area">
+      <div class="trick-area">
         <div class="trick-slot" id="trickSlot0"></div>
         <div class="trick-divider"></div>
         <div class="trick-slot" id="trickSlot1"></div>
@@ -91,34 +99,31 @@
       <div id="centerInfo" class="center-info"></div>
     </div>
 
-    <!-- Zona propia (abajo) -->
+    <!-- Mi zona (abajo) -->
     <div id="myZone">
       <div id="myCards" class="my-cards"></div>
-      <div id="myName" class="player-name my-name">—</div>
+      <div id="myName"  class="player-name">—</div>
     </div>
 
   </div>
 
-  <!-- PANEL DE ACCIONES (inferior) -->
-  <div id="actionPanel">
-    <div id="offerMsg" class="offer-msg hidden"></div>
-    <div id="actionBtns" class="action-btns">
-      <button id="envitBtn" class="abtn abtn-green">Envidar</button>
-      <button id="trucBtn"  class="abtn abtn-gold">Trucar</button>
-      <button id="mazoBtn"  class="abtn abtn-red">Ir al mazo</button>
-    </div>
-    <div id="responseArea" class="response-area hidden"></div>
-    <div id="statusMsg" class="status-msg"></div>
-  </div>
-
-  <!-- Info lateral flotante -->
+  <!-- Info lateral derecha -->
   <div id="sideInfo">
-    <div class="si-row"><span class="si-lbl">Mano</span><span id="siMano">—</span></div>
-    <div class="si-row"><span class="si-lbl">Ronda</span><span id="siHand">0</span></div>
-    <div class="si-row"><span class="si-lbl">Bazas</span><span id="siBazas">0-0</span></div>
+    <div class="si-block">
+      <div class="si-lbl">Mano</div>
+      <div id="siMano">—</div>
+    </div>
+    <div class="si-block">
+      <div class="si-lbl">Ronda</div>
+      <div id="siHand">0</div>
+    </div>
+    <div class="si-block">
+      <div class="si-lbl">Bazas</div>
+      <div id="siBazas">0-0</div>
+    </div>
   </div>
 
-  <!-- Historial colapsable -->
+  <!-- Registro colapsable (izquierda) -->
   <div id="logPanel">
     <div id="logToggle" class="log-toggle">▸ Registro</div>
     <div id="logBody" class="log-body hidden">
@@ -126,22 +131,55 @@
     </div>
   </div>
 
-  <!-- Overlay cuenta atrás -->
-  <div id="countdownOverlay" class="hidden">
-    <div id="countdownNum">5</div>
-    <div class="cd-label">Nueva mano en…</div>
+  <!-- PANEL DE ACCIONES (inferior) -->
+  <div id="actionPanel">
+    <div id="offerMsg"    class="offer-msg hidden"></div>
+    <div id="actionBtns" class="action-btns">
+      <button id="envitBtn" class="abtn abtn-green">Envidar</button>
+      <button id="trucBtn"  class="abtn abtn-gold">Trucar</button>
+      <button id="mazoBtn"  class="abtn abtn-red">Ir al mazo</button>
+    </div>
+    <div id="responseArea" class="response-area hidden"></div>
+    <div id="statusMsg"    class="status-msg"></div>
   </div>
 
-  <!-- Overlay fin partida -->
-  <div id="gameOverOverlay" class="hidden">
-    <div class="go-card">
-      <div class="go-title">Partida terminada</div>
-      <div id="goWinner" class="go-winner">—</div>
-      <div id="goScore"  class="go-score">—</div>
+
+  <!-- ── OVERLAY: INICIO DE PARTIDA (10 s) ── -->
+  <div id="startOverlay" class="overlay hidden">
+    <div class="overlay-card start-card">
+      <div class="ov-suits">
+        <span class="ls oros">◉</span>
+        <span class="ls copas">♆</span>
+        <span class="ls espadas">✦</span>
+        <span class="ls bastos">⊕</span>
+      </div>
+      <div class="ov-title">¡Comienza la partida!</div>
+      <div id="startPlayers" class="ov-players">— vs —</div>
+      <div id="startNum" class="ov-num">10</div>
+      <div class="ov-label">La partida empieza en…</div>
     </div>
   </div>
 
-</div>
+  <!-- ── OVERLAY: ENTRE MANOS (5 s) ── -->
+  <div id="countdownOverlay" class="overlay hidden">
+    <div class="overlay-card between-card">
+      <div class="ov-title">Nueva mano</div>
+      <div id="countdownNum" class="ov-num">5</div>
+      <div class="ov-label">en…</div>
+    </div>
+  </div>
+
+  <!-- ── OVERLAY: FIN DE PARTIDA ── -->
+  <div id="gameOverOverlay" class="overlay hidden">
+    <div class="overlay-card go-card">
+      <div class="ov-title">Partida terminada</div>
+      <div id="goWinner" class="go-winner">—</div>
+      <div id="goScore"  class="go-score">—</div>
+      <button id="goLeaveBtn" class="lbtn lbtn-primary" style="margin-top:16px;">Salir</button>
+    </div>
+  </div>
+
+</div><!-- /screenGame -->
 
 </body>
 </html>
