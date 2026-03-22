@@ -944,6 +944,7 @@ function startSession(code){
 function setLobbyMsg(txt,cls){const el=$('lobbyMsg');el.textContent=txt;el.className='lobby-msg'+(cls?' '+cls:'');}
 
 async function createRoom(){
+  console.log('createRoom called');
   const name=normName($('nameInput').value);
   const code=sanitize($('roomInput').value)||Math.random().toString(36).slice(2,6).toUpperCase();
   const r=ref(db,`rooms/${code}`);
@@ -988,7 +989,7 @@ async function leaveRoom(){
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────
-$('createBtn').addEventListener('click',createRoom);
+$('createBtn').addEventListener('click',()=>{console.log('createBtn clicked');createRoom();});
 $('joinBtn').addEventListener('click',joinRoom);
 $('leaveBtn').addEventListener('click',leaveRoom);
 $('goLeaveBtn').addEventListener('click',leaveRoom);
