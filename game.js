@@ -101,6 +101,7 @@ let uiLocked=false; // bloqueo visual inmediato
 let _prevHandsKey='';  // tracks hand cards state
 let _prevTrickKey='';  // tracks trick cards state
 let _prevHandKey='';   // tracks which hand we're in
+let _lastCompletedTricks=null; // snapshot of trick cards to show during countdown
 
 const $=id=>document.getElementById(id);
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -211,6 +212,8 @@ function handWinner(state){
 
 function applyHandEnd(state,reason){
   const h=state.hand;if(!h)return;
+  // Snapshot trick cards before clearing, so client can show them during countdown
+  // (stored client-side only, not in Firebase)
   const finish=()=>{
     const s0=getScore(state,0),s1=getScore(state,1);
     if(s0>=12||s1>=12){
@@ -656,6 +659,26 @@ function renderMyCards(state){
   });
 }
 
+function renderTrickSnapshot(snapshot){
+  // Render saved trick cards (used during between-hands countdown)
+  const slot0=$('trickSlot0'),slot1=$('trickSlot1');
+  const trickKey='snap|'+snapshot.key;
+  if(trickKey===_prevTrickKey)return;
+  _prevTrickKey=trickKey;
+  slot0.innerHTML='';slot1.innerHTML='';
+  slot0.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
+  slot1.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
+  snapshot.allTricks.forEach((t)=>{
+    [0,1].forEach(seat=>{
+      const card=seat===0?t.c0:t.c1;
+      if(!card||card===EMPTY_CARD)return;
+      const el=buildCard(card);
+      el.style.cssText='flex-shrink:0;opacity:0.55;filter:brightness(0.5);';
+      (seat===0?slot0:slot1).appendChild(el);
+    });
+  });
+}
+
 function renderTrick(state){
   const slot0=$('trickSlot0'),slot1=$('trickSlot1');
   const h=state.hand;
@@ -730,7 +753,11 @@ function renderActions(state){
     $('statusMsg').textContent=state.status==='waiting'?'Esperando…':'Partida terminada';return;}
   const myT=h.turn===mySeat,norm=h.mode==='normal',envDone=h.envit.state!=='none';
   const played=alreadyPlayed(h,mySeat);
-  eB.disabled=played||!myT||!h.envitAvailable||envDone||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
+  // Envit: solo antes de que se juegue la primera carta de la 1ª baza
+  const isFirstTrick=getTrickIndex(h)===0;
+  const neitherPlayed=!alreadyPlayed(h,0)&&!alreadyPlayed(h,1);
+  const envitOk=isFirstTrick&&neitherPlayed&&h.envitAvailable&&!envDone;
+  eB.disabled=!envitOk||!myT||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
   const trucDone=h.truc.state!=='none'; // truc ya en juego
   const trucMaxed=h.pendingOffer?.kind==='truc'&&h.pendingOffer?.level>=4; // ya en val4
   tB.disabled=played||!myT||!norm||!!h.pendingOffer||trucDone||trucMaxed;
@@ -810,7 +837,21 @@ function renderAll(room){
   $('rivalName').textContent=pName(state,other(mySeat));
   renderRivalCards(state.hand?.hands?.[K(other(mySeat))]);
   updateRivalTimer(state);
-  renderMyCards(state);renderTrick(state);renderActions(state);renderLog(state);
+  renderMyCards(state);
+  // During between-hands countdown, preserve trick display from last hand
+  if(state.status==='waiting'&&real(state.handNumber||OFFSET)>0&&_lastCompletedTricks){
+    renderTrickSnapshot(_lastCompletedTricks);
+  }else{
+    if(state.hand){
+    // Save current tricks for display during next countdown
+    _lastCompletedTricks={
+      allTricks:state.hand.allTricks||[],
+      key:real(state.handNumber||OFFSET)+'-'+getTrickIndex(state.hand)
+    };
+  }
+    renderTrick(state);
+  }
+  renderActions(state);renderLog(state);
   const ready=bothReady(state);
 
   if(state.status==='game_over'){
