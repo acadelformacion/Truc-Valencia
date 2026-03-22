@@ -411,13 +411,16 @@ async function startOffer(kind){
     const h=state.hand;
     if(!h||state.status!=='playing'||h.status!=='in_progress')return false;
     if(h.turn!==mySeat||h.pendingOffer)return false;
-    if(kind==='envit'){
+    if(kind==='envit'||kind==='falta'){
       if(!(h.mode==='normal'||h.mode==='respond_truc'))return false;
       if(!h.envitAvailable||h.envit.state!=='none')return false;
       h.resume={mode:h.mode,turn:h.turn};
-      h.pendingOffer={kind:'envit',level:2,by:mySeat,to:other(mySeat)};
+      const level=kind==='falta'?'falta':2;
+      h.pendingOffer={kind:'envit',level,by:mySeat,to:other(mySeat)};
       h.mode='respond_envit';h.turn=other(mySeat);
-      pushLog(state,`J${mySeat} canta envit.`);return true;
+      const label=kind==='falta'?'falta':'envit';
+      const plName=state.players?.[K(mySeat)]?.name||`J${mySeat}`;
+      pushLog(state,`${plName} canta ${label}.`);return true;
     }
     if(kind==='truc'){
       if(h.mode!=='normal')return false;
@@ -882,6 +885,9 @@ function renderActions(state){
   const iHaventPlayed=!alreadyPlayed(h,mySeat);
   const envitOk=noTricksPlayed&&iHaventPlayed&&!envDone;
   eB.disabled=!envitOk||!myT||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
+  // Falta: same conditions as envit
+  const fB=$('faltaBtn');
+  if(fB)fB.disabled=!envitOk||!myT||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
   // Truc button logic:
   // - Never if truc rejected, at max (4), or offer pending
   // - Only if truc never happened (state=none) OR we are the responder who accepted and can escalate
@@ -1004,17 +1010,17 @@ function renderAll(room){
   renderRivalCards(state.hand?.hands?.[K(other(mySeat))]);
   updateRivalTimer(state);
   renderMyCards(state);
-  // During between-hands countdown, preserve trick display from last hand
-  if(state.status==='waiting'&&real(state.handNumber||OFFSET)>0&&_lastCompletedTricks){
-    renderTrickSnapshot(_lastCompletedTricks);
-  }else{
-    if(state.hand){
-    // Save current tricks for display during next countdown
+  // Save trick snapshot whenever we have an active hand
+  if(state.hand){
     _lastCompletedTricks={
       allTricks:state.hand.allTricks||[],
       key:real(state.handNumber||OFFSET)+'-'+getTrickIndex(state.hand)
     };
   }
+  // Show snapshot (not blank) when hand is null (between hands or game over)
+  if(!state.hand&&_lastCompletedTricks){
+    renderTrickSnapshot(_lastCompletedTricks);
+  }else{
     renderTrick(state);
   }
   renderActions(state);renderLog(state);
@@ -1420,6 +1426,7 @@ $('guestReadyBtn')?.addEventListener('click',async()=>{
 });
 $('startBtn').addEventListener('click',async()=>{sndBtn();$('waitingOverlay').classList.add('hidden');await dealHand();});
 $('envitBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Envit!');startOffer('envit');});
+$('faltaBtn')?.addEventListener('click',()=>{sndBtn();showTableMsg('Falta!');startOffer('falta');});
 $('trucBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Truc!');startOffer('truc');});
 $('mazoBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Al Mazo');goMazo();});
 $('logToggle').addEventListener('click',()=>{
