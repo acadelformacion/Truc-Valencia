@@ -6,7 +6,7 @@
 //     El nodo NUNCA se borra; se resetea con un marcador "~" entre bazas.
 //   • Contadores: almacenados +10 para que nunca sean 0.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, get, set, push, remove, onValue, runTransaction }
+import { getDatabase, ref, get, set, push, remove, onValue, runTransaction, onDisconnect }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -1195,9 +1195,7 @@ function startSession(code){
   // Presence: mark player as connected; on disconnect mark absent
   if(mySeat!==null){
     const presRef=ref(db,`rooms/${code}/presence/${K(mySeat)}`);
-    const {onDisconnect:fbDisconnect}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-    const disc=fbDisconnect(presRef);
-    disc.set({absent:true,at:Date.now()}).catch(()=>{});
+    onDisconnect(presRef).set({absent:true,at:Date.now()});
     set(presRef,{absent:false,at:Date.now()}).catch(()=>{});
   }
   $('screenLobby').classList.add('hidden');$('screenGame').classList.remove('hidden');
