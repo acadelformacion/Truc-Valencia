@@ -29,30 +29,36 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
 .screen.hidden { display: none !important; }
 
 /* ══ LOBBY ══════════════════════════════ */
+/* ── LOBBY SCREEN ────────────────────────────────────── */
 #screenLobby {
-  align-items: center; justify-content: center;
-  background: url("fondo.jpg") center/cover no-repeat, var(--bg);
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  /* fondo.jpg cubre todo con blur via filter en el pseudoelemento */
+  background: url("fondo.jpg") center/cover no-repeat fixed, var(--bg);
 }
-#screenLobby::after {
-  content: '';
-  position: absolute; inset: 0; z-index: 0;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
+/* Capa de blur + oscurecimiento SIN pointer-events para no bloquear clicks */
 #screenLobby::before {
-  content: ""; position: absolute; inset: 0;
-  background: rgba(0,0,0,.68); z-index: 0;
+  content: "";
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 0;
+  pointer-events: none; /* ← crítico: no bloquear clicks */
 }
-#screenLobby .lobby-wrap { position: relative; z-index: 1; }
+/* El panel verde debe quedar encima de la capa de blur */
 .lobby-wrap {
-  width: 100%; max-width: 360px;
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: 360px;
   padding: 28px 24px;
   display: flex; flex-direction: column; gap: 20px;
-  background: rgba(10,18,14,.88);
-  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(20, 90, 45, 0.93); /* verde tapete */
+  border: 1px solid rgba(255,255,255,.18);
   border-radius: 20px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  box-shadow: 0 24px 64px rgba(0,0,0,.7);
 }
 .lobby-header { text-align: center; }
 .lobby-portada { width: 200px; height: auto; border-radius: 8px; margin-bottom: 2px; display: block; margin-left: auto; margin-right: auto; object-fit: cover; }
@@ -361,9 +367,7 @@ h1 .hi { color: var(--gold); }
 /* Summary label in between-hands overlay */
 .cd-summary { font-size: 12px; color: var(--muted); line-height: 1.7; text-align: center; min-height: 20px; }
 
-/* Fix lobby z-index so lobby-wrap sits above the blur layer */
-#screenLobby { position: relative; }
-#screenLobby .lobby-wrap { position: relative; z-index: 2; }
+/* lobby z-index managed in main block */
 
 /* ── RIVAL TURN INDICATOR ── */
 .rival-header {
@@ -451,16 +455,7 @@ h1 .hi { color: var(--gold); }
 .turn-dot { display: none !important; }
 
 /* ── LOBBY: full bleed background, no black bar ── */
-#screenLobby {
-  background-size: cover !important;
-  background-position: center center !important;
-  background-attachment: fixed !important;
-}
-/* Green felt card color for lobby panel */
-#screenLobby .lobby-wrap {
-  background: rgba(20, 90, 45, 0.92) !important;
-  border: 1px solid rgba(255,255,255,.15) !important;
-}
+/* green lobby panel handled in main block */
 /* Also for waitingOverlay card */
 #waitingOverlay .overlay-card {
   background: rgba(20, 90, 45, 0.94) !important;
@@ -482,4 +477,20 @@ h1 .hi { color: var(--gold); }
 }
 .trick-area {
   gap: 16px !important;
+}
+
+/* ── LOBBY TAGLINE ── */
+.lobby-tagline {
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255,255,255,.6);
+  font-style: italic;
+  padding-top: 4px;
+}
+
+/* ── LOBBY: ensure screen fills viewport with no black bars ── */
+#screenLobby {
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  overflow-y: auto !important;
 }
