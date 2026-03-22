@@ -88,6 +88,7 @@ const sndCard =()=>{tone(440,'triangle',.07,.14);tone(560,'triangle',.05,.09,.06
 const sndWin  =()=>{[523,659,784,1047].forEach((f,i)=>tone(f,'sine',.14,.17,i*.1));};
 const sndPoint=()=>{tone(330,'sine',.11,.13);tone(450,'sine',.09,.11,.1);};
 const sndTick =()=>tone(880,'square',.04,.06);
+const sndBtn  =()=>{tone(600,'sine',.04,.08);};
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 let roomRef=null,roomCode=null,mySeat=null;
@@ -608,22 +609,51 @@ function animatePlay(cardEl,card,onDone){
 
 // ─── Score summary for between-hands overlay ─────────────────────────────────
 function buildScoreSummary(state){
-  // state here is the WAITING state after hand ended - scores already updated
-  // We need the last log entries to reconstruct what happened
   const logs=state.logs||[];
-  const s0=getScore(state,0),s1=getScore(state,1);
-  let html=`<div style="font-size:13px;line-height:1.7;text-align:center;color:var(--text)">`;
-  // Show last 4 log entries that contain point info
-  const relevant=logs.filter(l=>l.text&&(l.text.includes('+')&&(l.text.includes('Envit')||l.text.includes('Truc')||l.text.includes('Mà')||l.text.includes('Mazo')))).slice(0,4);
-  if(relevant.length){
-    relevant.reverse().forEach(l=>{
-      // Reemplazar J0/J1 con nicks reales
-      let txt=l.text.replace(/\bJ0\b/g,pName(state,0)).replace(/\bJ1\b/g,pName(state,1));
-      html+=`<div>${txt}</div>`;
-    });
-  }
-  html+=`<div style="margin-top:8px;font-size:16px;font-weight:700;color:var(--gold)">${pName(state,0)}: ${s0} &nbsp;·&nbsp; ${pName(state,1)}: ${s1}</div>`;
-  html+=`</div>`;
+  // Collect point events from this hand (logs are newest-first)
+  // Find the "Marcador:" line — everything before it belongs to this hand
+  const marcIdx=logs.findIndex(l=>l.text?.startsWith('Marcador:'));
+  const handLogs=marcIdx>=0?logs.slice(0,marcIdx):logs.slice(0,8);
+  // Filter to point events
+  const pointEvents=handLogs.filter(l=>l.text&&l.text.includes('(+')).reverse();
+  
+  let html='<div class="summary-events">';
+  // Track points for this hand
+  let pts0=0,pts1=0;
+  pointEvents.forEach(l=>{
+    let txt=l.text;
+    // Extract points amount
+    const m=txt.match(/\(\+(\d+)\)/);
+    const pts=m?Number(m[1]):1;
+    // Determine winner from text
+    const p0name=pName(state,0),p1name=pName(state,1);
+    const won0=txt.includes(p0name)||txt.match(new RegExp(`J0`));
+    // Determine event type
+    let label=txt;
+    if(txt.includes('Envit')||txt.includes('nvit')){
+      const winner=txt.includes(p0name)?p0name:p1name;
+      label=`Envit guanyat per <b>${winner}</b>`;
+      if(txt.includes(p0name))pts0+=pts;else pts1+=pts;
+    }else if(txt.includes('Truc')||txt.includes('truc')){
+      const winner=txt.includes(p0name)?p0name:p1name;
+      label=`Truc guanyat per <b>${winner}</b>`;
+      if(txt.includes(p0name))pts0+=pts;else pts1+=pts;
+    }else if(txt.includes('Mà')||txt.includes('guanyada')){
+      const winner=txt.includes(p0name)?p0name:p1name;
+      label=`Mà guanyada per <b>${winner}</b>`;
+      if(txt.includes(p0name))pts0+=pts;else pts1+=pts;
+    }else if(txt.includes('mazo')||txt.includes('Mazo')){
+      const winner=txt.includes(p0name)?p0name:p1name;
+      label=`Al mazo, punt per <b>${winner}</b>`;
+      if(txt.includes(p0name))pts0+=pts;else pts1+=pts;
+    }else{
+      label=txt;
+    }
+    html+=`<div class="sum-row"><span class="sum-label">${label}</span> <span class="sum-pts">+${pts}</span></div>`;
+  });
+  
+  // Result of this hand
+  html+=`</div><div class="sum-result">${pName(state,0)} <span class="sum-score">${pts0}</span> – <span class="sum-score">${pts1}</span> ${pName(state,1)}</div>`;
   return html;
 }
 
@@ -780,7 +810,7 @@ function renderActions(state){
       ?(h.pendingOffer.level==='falta'?'Envit de falta':h.pendingOffer.level===4?'Torne (4)':'Envit')
       :(h.pendingOffer.level===3?'Retruque':h.pendingOffer.level===4?'Val 4':'Truc');
     om.classList.remove('hidden');ra.classList.remove('hidden');
-    const add=(l,cls,fn)=>{const b=document.createElement('button');b.textContent=l;b.className=`abtn ${cls}`;b.addEventListener('click',fn);ra.appendChild(b);};
+    const add=(l,cls,fn)=>{const b=document.createElement('button');b.textContent=l;b.className=`abtn ${cls}`;b.addEventListener('click',()=>{sndBtn();fn();});ra.appendChild(b);};
     if(h.pendingOffer.kind==='envit'){
       add('Vull','abtn-green',()=>respondEnvit('vull'));add('No vull','abtn-red',()=>respondEnvit('no_vull'));
       if(h.pendingOffer.level===2){add('Torne','abtn-gold',()=>respondEnvit('torne'));add('Falta','abtn-gold',()=>respondEnvit('falta'));}
@@ -815,8 +845,9 @@ function updateRivalTimer(state){
 function renderHUD(state){
   $('hudRoom').textContent=`Sala ${roomCode||'—'}`;
   $('hudSeat').textContent=`${pName(state,mySeat)} (J${mySeat})`;
-  $('hudScore0').textContent=String(getScore(state,0));
-  $('hudScore1').textContent=String(getScore(state,1));
+  // Show my score first, then rival's
+  $('hudScore0').textContent=String(getScore(state,mySeat));
+  $('hudScore1').textContent=String(getScore(state,other(mySeat)));
   $('hudState').textContent=state.status==='waiting'?'Esperando':state.status==='playing'?'En juego':'Terminada';
   $('siMano').textContent=`J${state.mano}${state.mano===mySeat?' (tú)':''}`;
   $('siHand').textContent=String(real(state.handNumber||OFFSET));
@@ -895,9 +926,27 @@ function renderAll(room){
     if(real(state.handNumber||OFFSET)===0){
       stopBetween();
       $('waitingCode').textContent=roomCode||'—';
-      $('waitingStatus').textContent=ready?`${pName(state,0)} i ${pName(state,1)} llestos`:'Esperant el segon jugador…';
-      $('startBtn').classList.toggle('hidden',!(mySeat===0&&ready));
-      $('waitingNote').textContent=mySeat===0?'Prem Iniciar quan els dos estigueu a punt':'Esperant que el creador inici la partida…';
+      const p0ready=!!(state.ready?.[K(0)]);
+      const p1ready=!!(state.ready?.[K(1)]);
+      const myReady=mySeat===0?p0ready:p1ready;
+      if(ready){
+        $('waitingStatus').textContent=`${pName(state,0)} i ${pName(state,1)} preparats`;
+      }else{
+        $('waitingStatus').textContent='Esperant el segon jugador…';
+      }
+      // Only host (seat 0) sees Start button; guest sees ready button + waiting msg
+      if(mySeat===0){
+        $('startBtn').classList.toggle('hidden',!ready);
+        $('waitingNote').textContent='';
+        $('guestReadyBtn').classList.add('hidden');
+        $('guestWaitMsg').classList.add('hidden');
+      }else{
+        $('startBtn').classList.add('hidden');
+        $('guestReadyBtn').classList.toggle('hidden', myReady);
+        $('guestWaitMsg').classList.toggle('hidden', !myReady);
+        $('guestWaitMsg').textContent=myReady?'Esperant que el creador inicie…':'';
+        $('waitingNote').textContent='';
+      }
       $('waitingOverlay').classList.remove('hidden');
     }else{
       $('waitingOverlay').classList.add('hidden');
@@ -1075,10 +1124,18 @@ $('joinBtn').addEventListener('click',joinRoom);
 $('leaveBtn').addEventListener('click',leaveRoom);
 $('goLeaveBtn').addEventListener('click',leaveRoom);
 $('goRematchBtn')?.addEventListener('click',requestRematch);
-$('startBtn').addEventListener('click',async()=>{$('waitingOverlay').classList.add('hidden');await dealHand();});
-$('envitBtn').addEventListener('click',()=>startOffer('envit'));
-$('trucBtn').addEventListener('click',()=>startOffer('truc'));
-$('mazoBtn').addEventListener('click',goMazo);
+$('guestReadyBtn')?.addEventListener('click',async()=>{
+  sndBtn();
+  await mutate(state=>{
+    if(!state.ready)state.ready={[K(0)]:false,[K(1)]:false};
+    state.ready[K(mySeat)]=true;
+    return true;
+  });
+});
+$('startBtn').addEventListener('click',async()=>{sndBtn();$('waitingOverlay').classList.add('hidden');await dealHand();});
+$('envitBtn').addEventListener('click',()=>{sndBtn();startOffer('envit');});
+$('trucBtn').addEventListener('click',()=>{sndBtn();startOffer('truc');});
+$('mazoBtn').addEventListener('click',()=>{sndBtn();goMazo();});
 $('logToggle').addEventListener('click',()=>{
   const b=$('logBody');b.classList.toggle('hidden');
   $('logToggle').textContent=b.classList.contains('hidden')?'▸ Registro':'▾ Registro';
