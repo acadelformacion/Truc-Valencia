@@ -738,3 +738,18 @@ h1 .hi { color: var(--gold); }
 
 /* ── Fix avatar options: remove onclick attr warning ── */
 .av-opt { cursor: pointer; }
+/* Avatar taken by rival */
+.av-opt.av-taken {
+  opacity: 0.35;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
+  border-color: rgba(218,54,51,.5) !important;
+}
+.av-opt.av-taken::after {
+  content: '✗';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: rgba(218,54,51,.9);
+  font-weight: 900;
+}
+.av-opt { position: relative; }
