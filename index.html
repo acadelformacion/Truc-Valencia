@@ -16,7 +16,7 @@
   <div class="lobby-wrap">
     <div class="lobby-header">
       <img src="portada.png" alt="Truc Valenciano" class="lobby-portada" />
-      <h1>El Truc <span class="hi"> de la Terreta</span></h1>
+      <h1>El Truc de <span class="hi">la Terreta</span></h1>
       <p class="lobby-sub">1 vs 1 · En temps real</p>
     </div>
     <div class="lobby-card">
@@ -38,12 +38,7 @@
       Disfruta del truc valencià de veritat 🍊
     </div>
 
-    <div class="lobby-debug">
-      <label class="chk-line">
-        <input id="debugReveal" type="checkbox" />
-        <span>Modo prueba (ver ambas manos)</span>
-      </label>
-    </div>
+
   </div>
 </div>
 
@@ -152,19 +147,21 @@
   <!-- ── OVERLAY: SALA EN ESPERA (host ve botón de inicio) ── -->
   <div id="waitingOverlay" class="overlay hidden">
     <div class="overlay-card waiting-card">
-      <div class="ov-suits">
-        <span class="ls oros">◉</span>
-        <span class="ls copas">♆</span>
-        <span class="ls espadas">✦</span>
-        <span class="ls bastos">⊕</span>
-      </div>
+      <img src="portada.png" alt="El Truc de la Terreta" class="waiting-portada" />
       <div class="ov-title">Sala creada</div>
-      <div id="waitingCode"   class="waiting-code">—</div>
-      <div id="waitingStatus" class="waiting-status">Esperando al segundo jugador…</div>
+      <div class="waiting-code-row">
+        <span class="waiting-code-lbl">Codi:</span>
+        <span id="waitingCode" class="waiting-code">—</span>
+      </div>
+      <div id="waitingStatus" class="waiting-status">Esperant el segon jugador…</div>
       <button id="startBtn" class="lbtn lbtn-primary hidden" style="margin-top:8px;width:100%;font-size:18px;padding:15px;">
         ▶ Iniciar partida
       </button>
-      <div id="waitingNote" class="waiting-note">Solo el creador puede iniciar</div>
+      <button id="guestReadyBtn" class="lbtn lbtn-secondary hidden" style="margin-top:8px;width:100%;">
+        ✋ Estic preparat!
+      </button>
+      <div id="guestWaitMsg" class="waiting-note hidden"></div>
+      <div id="waitingNote" class="waiting-note"></div>
     </div>
   </div>
 
