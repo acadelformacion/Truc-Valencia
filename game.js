@@ -1239,95 +1239,84 @@ function renderAvatars(room){
 
 // -- Quick join panel (shown when clicking a room from the list) --------------
 function showQuickJoin(code, hostName){
-  // Remove existing panel if any
-  const existing=$('quickJoinPanel');
+  // Remove existing if any
+  const existing=$('qjOverlay');
   if(existing)existing.remove();
 
-  const panel=document.createElement('div');
-  panel.id='quickJoinPanel';
-  panel.className='quick-join-panel';
-  panel.innerHTML=`
-    <div class="qj-title">Unir-se a la sala de <b>${hostName}</b></div>
-    <div class="lfield">
-      <label>El teu nom</label>
-      <input id="qjName" type="text" placeholder="Ej. Vicent" maxlength="24" autocomplete="off" />
+  // Centered overlay modal — only asks for nick
+  const overlay=document.createElement('div');
+  overlay.id='qjOverlay';
+  overlay.className='qj-overlay';
+  overlay.innerHTML=`
+    <div class="qj-modal">
+      <div class="qj-title">Unir-se a la sala de <b>${hostName}</b></div>
+      <div class="lfield" style="margin:12px 0 4px">
+        <label>El teu nom</label>
+        <input id="qjName" type="text" placeholder="Ej. Vicent" maxlength="24" autocomplete="off" />
+      </div>
+      <div class="qj-hint">Podras triar avatar en la seguent pantalla</div>
+      <div class="qj-btns">
+        <button id="qjJoinBtn" class="lbtn lbtn-primary">Entrar!</button>
+        <button id="qjCancelBtn" class="lbtn lbtn-secondary">Cancel.lar</button>
+      </div>
+      <div id="qjMsg" class="lobby-msg"></div>
     </div>
-    <div class="qj-av-label">Tria avatar:</div>
-    <div class="avatar-options qj-avs">
-      ${[0,1,2,3].map(i=>`<div class="av-opt" data-qi="${i}"></div>`).join('')}
-    </div>
-    <div class="qj-btns">
-      <button id="qjJoinBtn" class="lbtn lbtn-primary">Entrar!</button>
-      <button id="qjCancelBtn" class="lbtn lbtn-secondary">Cancel.lar</button>
-    </div>
-    <div id="qjMsg" class="lobby-msg"></div>
   `;
+  document.body.appendChild(overlay);
 
-  // Insert after room list
-  const rl=$('roomList');
-  rl.parentElement.appendChild(panel);
+  // Pre-fill saved name
+  const saved=localStorage.getItem('truc_name')||localStorage.getItem('truc_name_key')||'';
+  const nameEl=overlay.querySelector('#qjName');
+  if(saved)nameEl.value=saved;
+  setTimeout(()=>nameEl.focus(),50);
 
-  // Populate avatars
-  let qjAvatar=myAvatar;
-  panel.querySelectorAll('.av-opt').forEach((el,i)=>{
-    el.innerHTML=getAvatarSvg(i);
-    el.classList.toggle('av-selected',i===qjAvatar);
-    el.addEventListener('click',()=>{
-      qjAvatar=i;
-      panel.querySelectorAll('.av-opt').forEach((e,j)=>e.classList.toggle('av-selected',j===i));
-    });
-  });
+  // Close on backdrop click
+  overlay.addEventListener('click',e=>{ if(e.target===overlay)overlay.remove(); });
+  overlay.querySelector('#qjCancelBtn').addEventListener('click',()=>overlay.remove());
 
-  // Pre-fill name if saved
-  const saved=localStorage.getItem('truc_name')||'';
-  if(saved)panel.querySelector('#qjName').value=saved;
-  panel.querySelector('#qjName').focus();
-
-  panel.querySelector('#qjCancelBtn').addEventListener('click',()=>panel.remove());
-
-  panel.querySelector('#qjJoinBtn').addEventListener('click',async()=>{
-    const name=normName(panel.querySelector('#qjName').value);
-    if(!name){panel.querySelector('#qjMsg').textContent='Escriu el teu nom!';return;}
-    // Set avatar and name in main inputs so joinRoom() reads them
-    myAvatar=qjAvatar;
-    localStorage.setItem('truc_avatar',String(qjAvatar));
+  const doJoin=()=>{
+    const name=normName(nameEl.value);
+    if(!name){overlay.querySelector('#qjMsg').textContent='Escriu el teu nom!';return;}
     $('nameInput').value=name;
     $('roomInput').value=code;
-    panel.remove();
+    overlay.remove();
     joinRoom();
-  });
-
-  // Allow Enter key
-  panel.querySelector('#qjName').addEventListener('keydown',e=>{
-    if(e.key==='Enter')panel.querySelector('#qjJoinBtn').click();
-  });
+  };
+  overlay.querySelector('#qjJoinBtn').addEventListener('click',doJoin);
+  nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter')doJoin(); });
 }
 
 
 // -- Available rooms list ---------------------------------------------------
+let _lastRoomListKey='';
 async function loadRoomList(){
   const listEl=$('roomList');if(!listEl)return;
-  listEl.innerHTML='<div class="rl-loading">Cercant sales...</div>';
   try{
     const snap=await get(ref(db,'rooms'));
     const rooms=snap.val();
-    if(!rooms){listEl.innerHTML='<div class="rl-empty">Cap sala disponible</div>';return;}
     const open=[];
-    for(const[code,room] of Object.entries(rooms)){
-      const st=room?.state;
-      if(!st||st.status==='game_over')continue;
-      const p0=st.players?.[K(0)];
-      const p1=st.players?.[K(1)];
-      // Only show rooms with 1 player (waiting for second)
-      if(p0&&!p1){
-        const inactive=Date.now()-(room.lastActivity||0)>3600000;
-        if(!inactive)open.push({code,host:p0.name,createdAt:room.meta?.createdAt||0});
+    if(rooms){
+      for(const[code,room] of Object.entries(rooms)){
+        const st=room?.state;
+        if(!st||st.status==='game_over')continue;
+        const p0=st.players?.[K(0)];
+        const p1=st.players?.[K(1)];
+        if(p0&&!p1){
+          const inactive=Date.now()-(room.lastActivity||0)>3600000;
+          if(!inactive)open.push({code,host:p0.name,createdAt:room.meta?.createdAt||0});
+        }
       }
     }
-    if(!open.length){listEl.innerHTML='<div class="rl-empty">Cap sala oberta</div>';return;}
-    // Sort newest first
     open.sort((a,b)=>b.createdAt-a.createdAt);
+    // Only redraw if data actually changed
+    const newKey=open.map(r=>r.code+r.host).join('|');
+    if(newKey===_lastRoomListKey)return;
+    _lastRoomListKey=newKey;
     listEl.innerHTML='';
+    if(!open.length){
+      listEl.innerHTML='<div class="rl-empty">Cap sala oberta</div>';
+      return;
+    }
     open.forEach(r=>{
       const row=document.createElement('div');row.className='rl-row';
       row.innerHTML=`<div class="rl-info"><span class="rl-code">${r.code}</span><span class="rl-host">${r.host}</span></div><button class="lbtn lbtn-primary rl-join">Unir-se</button>`;
@@ -1336,7 +1325,9 @@ async function loadRoomList(){
       });
       listEl.appendChild(row);
     });
-  }catch(e){listEl.innerHTML='<div class="rl-empty">Error cercant sales</div>';}
+  }catch(e){
+    // Silently ignore errors to avoid showing flicker
+  }
 }
 
 let unsubMsg=null;
@@ -1453,7 +1444,7 @@ loadLS();
 // Load available rooms
 loadRoomList();
 // Refresh list every 10s while on lobby
-setInterval(()=>{ if(!$('screenLobby').classList.contains('hidden'))loadRoomList(); },10000);
+setInterval(()=>{ if(!$('screenLobby').classList.contains('hidden'))loadRoomList(); },5000);
 (async()=>{
   const _sr=localStorage.getItem(LS.room);
   if(_sr){
