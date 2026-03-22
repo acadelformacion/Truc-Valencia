@@ -1,5 +1,5 @@
-// --- Truc Valenciano · game.js ---------------------------------------------
-// Firebase borra nodos vacíos, null y false. Soluciones:
+// --- Truc Valenciano . game.js ---------------------------------------------
+// Firebase borra nodos vacios, null y false. Soluciones:
 //   * Claves de asiento: "_0","_1" (no "0","1" -> array)
 //   * Manos: objeto {a,b,c} con las cartas
 //   * Cartas jugadas: guardadas en h.played como {p0:"carta",p1:"carta"}
@@ -25,7 +25,7 @@ const db = getDatabase();
 const K  = n => `_${n}`;          // seat: 0->"_0"
 const PK = n => `p${n}`;          // played key: 0->"p0"
 const HKEYS = ['a','b','c'];
-const EMPTY_CARD = '~';            // marcador "no jugada" (valor no válido)
+const EMPTY_CARD = '~';            // marcador "no jugada" (valor no valido)
 
 const toHObj = arr => {
   const o = {};
@@ -40,7 +40,7 @@ const fromHObj = obj => {
   return HKEYS.map(k=>obj[k]).filter(c=>c&&c!==EMPTY_CARD);
 };
 
-// played: {p0:"1_oros", p1:"~"} — "~" = no jugó, string de carta = sí jugó
+// played: {p0:"1_oros", p1:"~"} - "~" = no jugo, string de carta = si jugo
 const getPlayed = (h, seat) => {
   const v = h?.played?.[PK(seat)];
   return (v && v !== EMPTY_CARD) ? v : null;
@@ -97,9 +97,9 @@ let unsubGame=null,unsubChat=null;
 let inactTimer=null,betweenTimer=null,turnTimer=null;
 let prevTurnKey='',prevEnvSt='none',prevTrucSt='none';
 let chatOpen=false,lastChatN=0;
-let _lastState=null; // último estado conocido para uso en helpers de render
+let _lastState=null; // ultimo estado conocido para uso en helpers de render
 let uiLocked=false; // bloqueo visual inmediato
-// Render tracking — avoid unnecessary DOM rebuilds that cause flash
+// Render tracking - avoid unnecessary DOM rebuilds that cause flash
 let _prevHandsKey='';  // tracks hand cards state
 let _prevTrickKey='';  // tracks trick cards state
 let _prevHandKey='';   // tracks which hand we're in
@@ -184,7 +184,7 @@ function getTrickIndex(h){return real(h?.trickIndex);}
 // --- Game logic ---------------------------------------------------------------
 function handWinner(state){
   const h=state.hand;
-  // Si alguien ganó 2 bazas ya está claro
+  // Si alguien gano 2 bazas ya esta claro
   const w0=getTW(h,0),w1=getTW(h,1);
   if(w0>=2)return 0;
   if(w1>=2)return 1;
@@ -203,11 +203,11 @@ function handWinner(state){
     if(r2===null||r2===undefined)return r1;
     // Baza 2 mismo ganador -> ese jugador gana
     if(r2===r1)return r1;
-    // Baza 2 ganó el otro -> desempate en baza 3
+    // Baza 2 gano el otro -> desempate en baza 3
     if(r3!==null&&r3!==undefined)return r3;
     // Baza 3 parda -> gana el de baza 1 (tiene la primera victoria)
     if(r3===null)return r1;
-    return r1; // baza 3 no jugada aún -> provisional
+    return r1; // baza 3 no jugada aun -> provisional
   }
   return state.mano;
 }
@@ -243,12 +243,12 @@ function applyHandEnd(state,reason){
     const hw=handWinner(state);
     if(hw!==null&&hw!==undefined){
       const hwName=state.players?.[K(hw)]?.name||`J${hw}`;
-      addScore(state,hw,1);pushLog(state,`Mà guanyada per ${hwName} (+1).`);
+      addScore(state,hw,1);pushLog(state,`Ma guanyada per ${hwName} (+1).`);
     }
     if(finish())return;
   }
   if(reason)pushLog(state,reason);
-  pushLog(state,`Marcador: ${getScore(state,0)}–${getScore(state,1)}`);
+  pushLog(state,`Marcador: ${getScore(state,0)}-${getScore(state,1)}`);
   state.mano=other(state.mano);state.turn=state.mano;
   state.status='waiting';state.hand=null;
   state.handNumber=(Number(state.handNumber||OFFSET))+1;
@@ -275,10 +275,10 @@ function resolveTrick(state){
   h.trickIndex=(Number(h.trickIndex||OFFSET))+1;
   // Guardar la baza resuelta en el array de todas las bazas
   h.allTricks=(h.allTricks||[]).concat([{c0:c0||EMPTY_CARD,c1:c1||EMPTY_CARD,w:w===null?99:w}]);
-  // RESET played con EMPTY_CARD — nunca borramos el nodo
+  // RESET played con EMPTY_CARD - nunca borramos el nodo
   resetPlayed(h);
   h.mode='normal';
-  // Envit SOLO permitido antes de jugar la 1ª carta de la 1ª baza
+  // Envit SOLO permitido antes de jugar la 1a carta de la 1a baza
   h.envitAvailable=false;
   const w0=getTW(h,0),w1=getTW(h,1);
   const tIdx=getTrickIndex(h);
@@ -296,9 +296,9 @@ function resolveTrick(state){
   const handOver=w0>=2||w1>=2||tIdx>=3||(b1Draw&&b2HasWinner)||(b1HasWinner&&b2Draw);
   if(handOver){
     const hw=handWinner(state);
-    // hw is 0 or 1 — use state.players directly (we're inside the transaction)
+    // hw is 0 or 1 - use state.players directly (we're inside the transaction)
     const hwName=state.players?.[K(hw)]?.name||`Jugador ${hw}`;
-    applyHandEnd(state,`Mà guanyada per ${hwName}.`);
+    applyHandEnd(state,`Ma guanyada per ${hwName}.`);
   }
 }
 
@@ -331,7 +331,7 @@ async function dealHand(){
     if(state.status==='game_over')return false;
     if(state.hand?.status==='in_progress')return false;
     state.hand=makeHand(state.mano);state.status='playing';
-    pushLog(state,`Mà #${real(state.handNumber)+1}. Torn: J${state.mano}.`);
+    pushLog(state,`Ma #${real(state.handNumber)+1}. Torn: J${state.mano}.`);
     return true;
   });
 }
@@ -358,7 +358,7 @@ async function playCard(card){
       const _b1Win=_hist.length>=1&&_isWin(_r1);
       const _b2Draw=_hist.length>=2&&_isDraw(_r2)&&_r2!==undefined;
       if((_b1Draw&&_b2Win)||(_b1Win&&_b2Draw))return false; // hand already decided
-      // Guardia: ¿ya jugó en esta baza?
+      // Guardia: ?ya jugo en esta baza?
       if(alreadyPlayed(h,mySeat)){console.warn('PLAYCARD: already played');return false;}
       const mine=fromHObj(h.hands?.[K(mySeat)]);
       if(!mine.includes(card))return false;
@@ -375,18 +375,18 @@ async function playCard(card){
       }else{
         // Esperamos al rival
         h.turn=other(mySeat);
-        // El segundo jugador SÍ puede envidar antes de su primera carta (baza 1)
+        // El segundo jugador SI puede envidar antes de su primera carta (baza 1)
         const isBaza1=(h.trickHistory||[]).length===0;
-        h.envitAvailable=isBaza1; // true si aún estamos en la primera baza
+        h.envitAvailable=isBaza1; // true si aun estamos en la primera baza
       }
       return true;
     });
   }finally{
     // Desbloquear y forzar re-render para que las cartas vuelvan a ser clickables
-    // si Firebase ya respondió mientras uiLocked estaba activo
+    // si Firebase ya respondio mientras uiLocked estaba activo
     setTimeout(()=>{
       uiLocked=false;
-      // Forzar re-render desde el último estado de Firebase
+      // Forzar re-render desde el ultimo estado de Firebase
       if(roomRef){
         get(roomRef).then(snap=>{if(snap.val())renderAll(snap.val());}).catch(()=>{});
       }
@@ -515,13 +515,13 @@ async function timeoutTurn(){
       }
       if(h.pendingOffer.kind==='truc'){
         addSA(h,h.pendingOffer.by);
-        pushLog(state,`J${mySeat} perd la mà per temps.`);
+        pushLog(state,`J${mySeat} perd la ma per temps.`);
         applyHandEnd(state,'Temps exhaurit.');return true;
       }
     }
     if(!alreadyPlayed(h,mySeat)&&h.mode==='normal'){
       addSA(h,other(mySeat));
-      pushLog(state,`J${mySeat} perd la mà per temps.`);
+      pushLog(state,`J${mySeat} perd la ma per temps.`);
       applyHandEnd(state,'Temps exhaurit.');return true;
     }
     return false;
@@ -615,7 +615,7 @@ function startBetween(summaryHtml){
       stopBetween();if(mySeat===0)dealHand();return;
     }
     cdEl.classList.remove('hidden');
-    cdEl.innerHTML=`<div class="cd-subtitle">Següent mà en…</div><div class="cd-number">${n}</div>`;
+    cdEl.innerHTML=`<div class="cd-subtitle">Seguent ma en...</div><div class="cd-number">${n}</div>`;
     if(n<5)sndTick();
     n--;
     betweenTimer=setTimeout(tick,1000);
@@ -721,22 +721,22 @@ function buildScoreSummary(state){
       label=`Envit guanyat per <b>${winner}</b>`;
     }else if(txt.includes('Envit')&&txt.includes('rebutjat')){
       winner=guessWinner();
-      label=`No vull l'envit — +1 per <b>${winner}</b>`;
+      label=`No vull l'envit - +1 per <b>${winner}</b>`;
     }else if((txt.includes('Truc')||txt.includes('truc')||txt.includes('Retruque')||txt.includes('Val 4'))&&(txt.includes('guanya')||txt.includes('acceptat'))){
       winner=guessWinner();
       label=`Truc guanyat per <b>${winner}</b>`;
     }else if((txt.includes('Truc')||txt.includes('truc'))&&txt.includes('rebutjat')){
       winner=guessWinner();
-      label=`No vull el truc — +1 per <b>${winner}</b>`;
-    }else if(txt.includes('Mà guanyada')||txt.includes('guanyada')){
+      label=`No vull el truc - +1 per <b>${winner}</b>`;
+    }else if(txt.includes('Ma guanyada')||txt.includes('guanyada')){
       winner=guessWinner();
-      label=`Mà guanyada per <b>${winner}</b>`;
+      label=`Ma guanyada per <b>${winner}</b>`;
     }else if(txt.includes('mazo')||txt.includes('Mazo')){
       winner=guessWinner();
-      label=`Al mazo — punt per <b>${winner}</b>`;
+      label=`Al mazo - punt per <b>${winner}</b>`;
     }else if(txt.includes('rebutjat')){
       winner=guessWinner();
-      label=`Rebutjat — punt per <b>${winner}</b>`;
+      label=`Rebutjat - punt per <b>${winner}</b>`;
     }else{continue;}
     if(winner===p0)pts0+=pts;else pts1+=pts;
     rows.push(`<div class="sum-row"><span class="sum-label">${label}</span><span class="sum-pts">+${pts}</span></div>`);
@@ -745,20 +745,20 @@ function buildScoreSummary(state){
   let html='<div class="summary-events">';
   if(rows.length){html+=rows.join('');}
   else{html+='<div style="color:var(--muted);font-size:12px">Cap punt especial</div>';}
-  html+=`</div><div class="sum-result">${p0} <span class="sum-score">${pts0}</span> – <span class="sum-score">${pts1}</span> ${p1}</div>`;
+  html+=`</div><div class="sum-result">${p0} <span class="sum-score">${pts0}</span> - <span class="sum-score">${pts1}</span> ${p1}</div>`;
   return html;
 }
 
 function renderRivalCards(handObj){
   const z=$('rivalCards');z.innerHTML='';
   const cards=fromHObj(handObj);const n=cards.length;
-  // Mostrar siempre el número real de cartas restantes del rival (boca abajo)
+  // Mostrar siempre el numero real de cartas restantes del rival (boca abajo)
   // Empieza con 3, baja a 2, luego 1 conforme juega
   z.setAttribute('data-count',String(n));
   for(let i=0;i<n;i++){
     const s=document.createElement('div');
     s.className='rival-card-slot';
-    // Separación en abanico: la del medio centrada, las laterales inclinadas
+    // Separacion en abanico: la del medio centrada, las laterales inclinadas
     const angles=n===3?[-8,0,8]:n===2?[-5,5]:[0];
     const xoffs=n===3?[-44,0,44]:n===2?[-24,24]:[0];
     s.style.cssText=`transform:translateX(${xoffs[i]||0}px) rotate(${angles[i]||0}deg);z-index:${i+1};`;
@@ -836,7 +836,7 @@ function renderTrick(state){
     sl.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
   });
 
-  // Previous tricks — only dim when a new card is being played (hasCurrent)
+  // Previous tricks - only dim when a new card is being played (hasCurrent)
   allT.forEach((t,i)=>{
     const isLastResolved=(i===allT.length-1);
     // If nothing playing yet, last resolved trick stays at full brightness
@@ -851,7 +851,7 @@ function renderTrick(state){
     });
   });
 
-  // Current trick — full brightness, animation
+  // Current trick - full brightness, animation
   [0,1].forEach(seat=>{
     const card=seat===0?p0:p1;
     if(!card)return;
@@ -884,11 +884,11 @@ function renderActions(state){
   ra.innerHTML='';ra.classList.add('hidden');om.classList.add('hidden');
   const playing=state.status==='playing'&&h?.status==='in_progress';
   if(!playing){eB.disabled=true;tB.disabled=true;mB.disabled=true;
-    $('statusMsg').textContent=state.status==='waiting'?'Esperando…':'Partida terminada';return;}
+    $('statusMsg').textContent=state.status==='waiting'?'Esperando...':'Partida terminada';return;}
   const myT=h.turn===mySeat,norm=h.mode==='normal',envDone=h.envit.state!=='none';
   const played=alreadyPlayed(h,mySeat);
   // Envit: SOLO antes de que cualquiera juegue la primera carta de la mano
-  // = ninguna baza resuelta aún + nadie ha jugado carta en esta primera baza
+  // = ninguna baza resuelta aun + nadie ha jugado carta en esta primera baza
   const noTricksPlayed=(h.trickHistory||[]).length===0;
   // Envit ok if: first trick, I haven't played my card yet, no envit done
   const iHaventPlayed=!alreadyPlayed(h,mySeat);
@@ -922,10 +922,10 @@ function renderActions(state){
     }
   }
   const sm=$('statusMsg');sm.classList.remove('my-turn');
-  if(played&&!bothPlayed(h))sm.textContent=`Esperando a ${pName(state,other(mySeat))}…`;
-  else if(h.pendingOffer&&h.turn!==mySeat)sm.textContent=`Esperando a ${pName(state,h.turn)}…`;
+  if(played&&!bothPlayed(h))sm.textContent=`Esperando a ${pName(state,other(mySeat))}...`;
+  else if(h.pendingOffer&&h.turn!==mySeat)sm.textContent=`Esperando a ${pName(state,h.turn)}...`;
   else if(!myT&&!played)sm.textContent=`Turno de ${pName(state,h.turn)}`;
-  else if(!played&&norm&&!h.pendingOffer){sm.textContent='Tu turno — elige carta o acción';sm.classList.add('my-turn');}
+  else if(!played&&norm&&!h.pendingOffer){sm.textContent='Tu turno - elige carta o accion';sm.classList.add('my-turn');}
   else sm.textContent='';
 }
 
@@ -940,7 +940,7 @@ function updateRivalTimer(state){
 }
 
 function renderHUD(state){
-  $('hudRoom').textContent=`Sala ${roomCode||'—'}`;
+  $('hudRoom').textContent=`Sala ${roomCode||'-'}`;
   $('hudSeat').textContent=pName(state,mySeat);
   // Show my score first, then rival's
   $('hudScore0').textContent=String(getScore(state,mySeat));
@@ -1036,15 +1036,15 @@ function renderAll(room){
       const iWon=state.winner===mySeat;
       setTimeout(()=>{
         $('gameOverOverlay').classList.remove('hidden');
-        $('goTitle').textContent=iWon?'🏆 Has guanyat!':'Has perdut';
+        $('goTitle').textContent=iWon?'[T] Has guanyat!':'Has perdut';
         $('goWinner').textContent=pName(state,state.winner)+' guanya';
-        $('goScore').textContent=`${getScore(state,mySeat)} – ${getScore(state,other(mySeat))}`;
+        $('goScore').textContent=`${getScore(state,mySeat)} - ${getScore(state,other(mySeat))}`;
         if(iWon){sndWin();startConfetti(true);}
         else{sndLose();startConfetti(false);}
       },3000);
     }
     renderRematchStatus(state);
-    // Don't return early — let renderTrick show the last cards
+    // Don't return early - let renderTrick show the last cards
   }else{
   // Si ya no es game_over (revancha), ocultar overlay
   if(!$('gameOverOverlay').classList.contains('hidden')){
@@ -1057,17 +1057,17 @@ function renderAll(room){
     stopTurnTimer();
     if(real(state.handNumber||OFFSET)===0){
       stopBetween();
-      $('waitingCode').textContent=roomCode||'—';
+      $('waitingCode').textContent=roomCode||'-';
       const p0ready=!!(state.ready?.[K(0)]);
       const p1ready=!!(state.ready?.[K(1)]);
       const myReady=mySeat===0?p0ready:p1ready;
       const rivReady=mySeat===0?p1ready:p0ready;
       if(ready){
         const rivName=pName(state,other(mySeat));
-        const readyTxt=rivReady?`${rivName} està preparat!`:'Esperant que els jugadors estiguen preparats…';
+        const readyTxt=rivReady?`${rivName} esta preparat!`:'Esperant que els jugadors estiguen preparats...';
         $('waitingStatus').textContent=readyTxt;
       }else{
-        $('waitingStatus').textContent='Esperant el segon jugador…';
+        $('waitingStatus').textContent='Esperant el segon jugador...';
       }
       // Only host (seat 0) sees Start button; guest sees ready button + waiting msg
       if(mySeat===0){
@@ -1079,7 +1079,7 @@ function renderAll(room){
         $('startBtn').classList.add('hidden');
         $('guestReadyBtn').classList.toggle('hidden', myReady);
         $('guestWaitMsg').classList.toggle('hidden', !myReady);
-        $('guestWaitMsg').textContent=myReady?'Esperant que el creador inicie…':'';
+        $('guestWaitMsg').textContent=myReady?'Esperant que el creador inicie...':'';
         $('waitingNote').textContent='';
       }
       $('waitingOverlay').classList.remove('hidden');
@@ -1167,10 +1167,10 @@ function renderRematchStatus(state){
   const myWant=!!(state.rematch?.[K(mySeat)]);
   const rivWant=!!(state.rematch?.[K(other(mySeat))]);
   if(myWant&&!rivWant){
-    btn.disabled=true;btn.textContent='⏳ Esperando revancha…';
-    st.textContent=`${pName(state,other(mySeat))} no ha respondido aún`;
+    btn.disabled=true;btn.textContent='() Esperando revancha...';
+    st.textContent=`${pName(state,other(mySeat))} no ha respondido aun`;
   }else if(!myWant){
-    btn.disabled=false;btn.textContent='⚔️ Revancha';
+    btn.disabled=false;btn.textContent='vs Revancha';
     st.textContent=rivWant?`${pName(state,other(mySeat))} quiere la revancha!`:'';
   }
 }
@@ -1328,7 +1328,7 @@ $('guestReadyBtn')?.addEventListener('click',async()=>{
   await mutate(state=>{
     if(!state.ready)state.ready={[K(0)]:false,[K(1)]:false};
     state.ready[K(mySeat)]=true;
-    pushLog(state,pName(state,mySeat)+' està preparat!');
+    pushLog(state,pName(state,mySeat)+' esta preparat!');
     return true;
   });
 });
@@ -1338,7 +1338,7 @@ $('trucBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Truc!');startO
 $('mazoBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Al Mazo');goMazo();});
 $('logToggle').addEventListener('click',()=>{
   const b=$('logBody');b.classList.toggle('hidden');
-  $('logToggle').textContent=b.classList.contains('hidden')?'▸ Registro':'▾ Registro';
+  $('logToggle').textContent=b.classList.contains('hidden')?'> Registro':'v Registro';
 });
 $('chatToggle').addEventListener('click',()=>{
   chatOpen=!chatOpen;$('chatBox').classList.toggle('hidden',!chatOpen);
