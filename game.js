@@ -237,6 +237,7 @@ function resolveTrick(state){
   // RESET played con EMPTY_CARD — nunca borramos el nodo
   resetPlayed(h);
   h.mode='normal';
+  h.envitAvailable=true; // nueva baza: se puede volver a envidar
   const w0=getTW(h,0),w1=getTW(h,1);
   if(w0>=2||w1>=2||getTrickIndex(h)>=3)applyHandEnd(state,`Mà: guanya J${handWinner(state)}.`);
 }
@@ -305,7 +306,9 @@ async function playCard(card){
       return true;
     });
   }finally{
-    setTimeout(()=>{uiLocked=false;},800);
+    // Desbloquear tras la animación (350ms), no 800ms
+    // Firebase ya actualizó el estado; renderMyCards reactivará las cartas correctas
+    setTimeout(()=>{uiLocked=false;},350);
   }
 }
 
@@ -573,7 +576,7 @@ function renderTrick(state){
 
   // Renderizar bazas anteriores
   allT.forEach((t,i)=>{
-    const offsets=[-22,-8,6]; // desplazamiento horizontal para apilar
+    const offsets=[-28,-4,20]; // desplazamiento horizontal para apilar (mayor separación)
     const off=offsets[Math.min(i,offsets.length-1)];
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
@@ -645,12 +648,24 @@ function renderActions(state){
       if(h.pendingOffer.level===3)add('Val 4','abtn-gold',()=>respondTruc('val4'));
     }
   }
-  const sm=$('statusMsg');
+  const sm=$('statusMsg');sm.classList.remove('my-turn');
   if(played&&!bothPlayed(h))sm.textContent=`Esperando a ${pName(state,other(mySeat))}…`;
   else if(h.pendingOffer&&h.turn!==mySeat)sm.textContent=`Esperando a ${pName(state,h.turn)}…`;
   else if(!myT&&!played)sm.textContent=`Turno de ${pName(state,h.turn)}`;
-  else if(!played&&norm&&!h.pendingOffer)sm.textContent='Tu turno — elige carta o acción';
+  else if(!played&&norm&&!h.pendingOffer){sm.textContent='Tu turno — elige carta o acción';sm.classList.add('my-turn');}
   else sm.textContent='';
+}
+
+function updateRivalTimer(state){
+  // Muestra/oculta el indicador circular de turno del rival
+  const h=state.hand;
+  const rivalEl=$('rivalTurnDot');
+  if(!rivalEl)return;
+  if(!h||state.status!=='playing'||h.status!=='in_progress'){
+    rivalEl.classList.add('hidden');return;
+  }
+  const rivalHasTurn=(h.turn===other(mySeat)&&!alreadyPlayed(h,other(mySeat)));
+  rivalEl.classList.toggle('hidden',!rivalHasTurn);
 }
 
 function renderHUD(state){
@@ -687,6 +702,7 @@ function renderAll(room){
   $('myName').textContent=pName(state,mySeat);
   $('rivalName').textContent=pName(state,other(mySeat));
   renderRivalCards(state.hand?.hands?.[K(other(mySeat))]);
+  updateRivalTimer(state);
   renderMyCards(state);renderTrick(state);renderActions(state);renderLog(state);
   const ready=bothReady(state);
 
