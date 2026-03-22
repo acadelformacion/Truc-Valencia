@@ -817,3 +817,14 @@ h1 .hi { color: var(--gold); }
   font-size: 11px; color: rgba(255,255,255,.45);
   text-align: center; margin-bottom: 8px; font-style: italic;
 }
+
+/* -- Game over overlay: transparent so cards show through -- */
+#gameOverOverlay {
+  background: rgba(0,0,0,.45) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
+}
+#gameOverOverlay .overlay-card {
+  background: rgba(10,20,14,.82) !important;
+  border: 1px solid rgba(255,255,255,.15) !important;
+}
