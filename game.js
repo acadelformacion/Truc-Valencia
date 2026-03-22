@@ -426,7 +426,7 @@ async function startOffer(kind){
       if(h.mode!=='normal')return false;
       // Determine level: if escalating after acceptance, use next level
       let trucLevel=2;
-      if(h.truc.state==='accepted'&&h.truc.responder===mySeat){
+      if(h.truc.state==='accepted'&&h.truc.acceptedBy===mySeat){
         trucLevel=Number(h.truc.acceptedLevel||2)+1;
         if(trucLevel>4)return false;
       }else if(h.truc.state!=='none')return false;
@@ -809,13 +809,13 @@ function renderTrickSnapshot(snapshot){
   slot0.innerHTML='';slot1.innerHTML='';
   slot0.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
   slot1.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
+  // Show ALL cards at full brightness during countdown/gameover
   snapshot.allTricks.forEach((t,ii)=>{
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
       if(!card||card===EMPTY_CARD)return;
       const el=buildCard(card);
-      const isLast=(ii===snapshot.allTricks.length-1);
-      el.style.cssText=`flex-shrink:0;opacity:${isLast?1:0.6};filter:${isLast?'none':'brightness(0.55)'};`;
+      el.style.cssText='flex-shrink:0;opacity:1;filter:none;';
       (seat===0?slot0:slot1).appendChild(el);
     });
   });
@@ -840,12 +840,18 @@ function renderTrick(state){
     sl.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
   });
 
-  // Previous tricks - only dim when a new card is being played (hasCurrent)
+  // Dim previous tricks only when a new trick is in progress
   allT.forEach((t,i)=>{
     const isLastResolved=(i===allT.length-1);
-    // If nothing playing yet, last resolved trick stays at full brightness
-    const opacity=hasCurrent?(isLastResolved?0.7:0.45):(isLastResolved?1:0.55);
-    const filt=hasCurrent?(isLastResolved?'brightness(0.7)':'brightness(0.4)'):(isLastResolved?'brightness(1)':'brightness(0.65)');
+    let opacity,filt;
+    if(!hasCurrent){
+      // No card currently being played: all at full brightness
+      opacity=1; filt='none';
+    }else{
+      // A card is being played: dim older tricks
+      opacity=isLastResolved?0.7:0.45;
+      filt=isLastResolved?'brightness(0.7)':'brightness(0.4)';
+    }
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
       if(!card||card===EMPTY_CARD)return;
@@ -895,8 +901,9 @@ function renderActions(state){
   const trucLevel=Number(h.truc.acceptedLevel||0);
   const trucAtMax=h.truc.state==='accepted'&&trucLevel>=4;
   const trucPending=!!h.pendingOffer&&h.pendingOffer.kind==='truc';
-  // Responder (who said vull) can escalate to next level in following tricks
-  const canEscalate=h.truc.state==='accepted'&&trucLevel<4&&h.truc.responder===mySeat;
+  // Only the player who ACCEPTED (said vull) can escalate to next level
+  // They accepted the challenge, so they can counter-escalate
+  const canEscalate=h.truc.state==='accepted'&&trucLevel<4&&h.truc.acceptedBy===mySeat;
   const trucNeverHappened=h.truc.state==='none';
   tB.disabled=played||!myT||!norm||trucPending||trucRejected||trucAtMax||(!trucNeverHappened&&!canEscalate);
   // Ir al mazo: available any time it's your turn and you haven't played yet
