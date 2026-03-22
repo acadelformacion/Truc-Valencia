@@ -771,3 +771,26 @@ h1 .hi { color: var(--gold); }
 
 /* -- Remove trick dots CSS (already removed from JS) -- */
 .trick-history-dots, .trick-dot { display: none !important; }
+
+/* -- Quick join panel -- */
+.quick-join-panel {
+  background: rgba(0,0,0,.3);
+  border: 1px solid rgba(232,171,42,.35);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeSlideIn .25s ease;
+}
+@keyframes fadeSlideIn {
+  from { opacity:0; transform:translateY(-8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.qj-title { font-size: 14px; color: var(--text); text-align: center; }
+.qj-title b { color: var(--gold); }
+.qj-av-label { font-size: 11px; color: rgba(255,255,255,.5); text-align: center; }
+.qj-avs { justify-content: center; }
+.qj-btns { display: flex; gap: 8px; }
+.qj-btns .lbtn { flex: 1; padding: 10px !important; font-size: 14px !important; }
