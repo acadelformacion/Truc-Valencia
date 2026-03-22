@@ -33,6 +33,12 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
   align-items: center; justify-content: center;
   background: url("fondo.jpg") center/cover no-repeat, var(--bg);
 }
+#screenLobby::after {
+  content: '';
+  position: absolute; inset: 0; z-index: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
 #screenLobby::before {
   content: ""; position: absolute; inset: 0;
   background: rgba(0,0,0,.68); z-index: 0;
@@ -267,21 +273,23 @@ h1 .hi { color: var(--gold); }
 #waitingOverlay .overlay-card { position:relative; z-index:1; }
 .overlay.hidden { display: none !important; }
 
-/* El overlay entre manos NO tapa la mesa — solo muestra el número flotante */
+/* Countdown entre manos: flotante, semitransparente, no tapa el tablero */
 #countdownOverlay {
   background: transparent !important;
   backdrop-filter: none !important;
   pointer-events: none;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: center;
-  padding-top: 80px;
+  padding-bottom: 150px;
 }
 #countdownOverlay .overlay-card {
-  background: rgba(11,21,18,.7);
-  backdrop-filter: blur(6px);
-  border-color: rgba(232,171,42,.3);
-  padding: 20px 40px;
-  gap: 6px;
+  background: rgba(8,16,11,.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(232,171,42,.25);
+  padding: 16px 28px;
+  gap: 4px;
+  max-width: 360px;
+  width: 90vw;
 }
 .overlay-card { background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: 24px; padding: 40px 52px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; animation: ovIn .35s cubic-bezier(.2,.8,.3,1) both; }
 @keyframes ovIn { from{opacity:0;transform:scale(.88)} to{opacity:1;transform:scale(1)} }
@@ -324,3 +332,13 @@ h1 .hi { color: var(--gold); }
   .overlay-card { padding: 28px 24px; }
   .waiting-code { font-size: 42px; }
 }
+
+#countdownOverlay .ov-num { font-size: 56px; animation: none; }
+#countdownOverlay .ov-label { font-size: 12px; letter-spacing: 1px; }
+
+/* Summary label in between-hands overlay */
+.cd-summary { font-size: 12px; color: var(--muted); line-height: 1.7; text-align: center; min-height: 20px; }
+
+/* Fix lobby z-index so lobby-wrap sits above the blur layer */
+#screenLobby { position: relative; }
+#screenLobby .lobby-wrap { position: relative; z-index: 2; }
