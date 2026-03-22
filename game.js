@@ -466,22 +466,55 @@ async function timeoutTurn(){
 }
 
 // ─── Timers ───────────────────────────────────────────────────────────────────
+// ── Circular ring helpers ─────────────────────────────────────────────────────
+const RING_C = 2*Math.PI*15; // circumference for r=15
+function setRing(arcId,ringId,pct,phase){
+  const arc=$(arcId),ring=$(ringId);if(!arc||!ring)return;
+  ring.classList.toggle('hidden',pct<=0);
+  const dash=RING_C*(pct/100);
+  arc.style.strokeDasharray=`${dash} ${RING_C}`;
+  // Color: green→yellow→red
+  const color=pct>60?'#2ea043':pct>30?'#e8ab2a':'#da3633';
+  arc.style.stroke=color;
+  // Pulse on urgent
+  ring.style.filter=pct<=20?`drop-shadow(0 0 4px ${color})`:'none';
+}
+
 function stopTurnTimer(){
   clearInterval(turnTimer);turnTimer=null;
   const f=$('turnTimerFill');
   if(f){f.style.transition='none';f.style.width='0%';f.classList.remove('urgent');}
+  setRing('myTimerArc','myTimerRing',0,'my');
+  setRing('rivalTimerArc','rivalTimerRing',0,'rival');
 }
-function startTurnTimer(active){
+function startTurnTimer(isMyTurn, state){
   stopTurnTimer();
-  const f=$('turnTimerFill');if(!f||!active)return;
-  let rem=TURN_SECS;f.style.transition='none';f.style.width='100%';
+  const f=$('turnTimerFill');
+  let rem=TURN_SECS;
+  // Show ring on the active player
+  if(isMyTurn){
+    if(f){f.style.transition='none';f.style.width='100%';}
+    setRing('myTimerArc','myTimerRing',100,'my');
+    setRing('rivalTimerArc','rivalTimerRing',0,'rival');
+  } else {
+    if(f){f.style.width='0%';}
+    setRing('myTimerArc','myTimerRing',0,'my');
+    setRing('rivalTimerArc','rivalTimerRing',100,'rival');
+  }
   setTimeout(()=>{
-    f.style.transition='width 1s linear';
+    if(f&&isMyTurn)f.style.transition='width 1s linear';
     turnTimer=setInterval(()=>{
-      rem--;f.style.width=Math.max(0,(rem/TURN_SECS)*100)+'%';
-      if(rem<=10)f.classList.add('urgent');
+      rem--;
+      const pct=Math.max(0,(rem/TURN_SECS)*100);
+      if(isMyTurn){
+        if(f)f.style.width=pct+'%';
+        if(rem<=10){if(f)f.classList.add('urgent');}
+        setRing('myTimerArc','myTimerRing',pct,'my');
+      } else {
+        setRing('rivalTimerArc','rivalTimerRing',pct,'rival');
+      }
       if(rem<=5)sndTick();
-      if(rem<=0){stopTurnTimer();timeoutTurn();}
+      if(rem<=0){stopTurnTimer();if(isMyTurn)timeoutTurn();}
     },1000);
   },50);
 }
@@ -604,44 +637,44 @@ function renderMyCards(state){
 }
 
 function renderTrick(state){
-  $('trickSlot0').innerHTML='';$('trickSlot1').innerHTML='';
+  const slot0=$('trickSlot0'),slot1=$('trickSlot1');
+  slot0.innerHTML='';slot1.innerHTML='';
   const h=state.hand;if(!h)return;
 
-  // Construir la lista completa de cartas a mostrar por asiento
-  // Bazas anteriores (opacidad reducida) + baza actual (plena)
   const allT=h.allTricks||[];
   const p0=getPlayed(h,0),p1=getPlayed(h,1);
+  const hasCurrent=p0||p1;
 
-  // Monto de columnas: hasta 3 cartas apiladas ligeramente desplazadas
-  const slot0=$('trickSlot0'),slot1=$('trickSlot1');
-  slot0.style.cssText='position:relative;width:80px;min-height:114px;display:flex;align-items:center;justify-content:center;';
-  slot1.style.cssText='position:relative;width:80px;min-height:114px;display:flex;align-items:center;justify-content:center;';
+  // Each slot holds a flex row of cards side-by-side
+  [slot0,slot1].forEach(sl=>{
+    sl.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
+  });
 
-  // Renderizar bazas anteriores (apiladas verticalmente: más abajo = más antiguas)
+  // Previous tricks — dimmed with dark overlay tint
   allT.forEach((t,i)=>{
-    // Cada baza anterior sube 18px respecto a la anterior, ligeramente más pequeña
-    const yOff = (allT.length - 1 - i) * 18; // baza más antigua más abajo
-    const scale = 0.82 + i * 0.04; // escala creciente para las más recientes
+    const isLast=(i===allT.length-1)&&!hasCurrent;
+    const opacity=isLast?0.75:0.45;
+    const filter=isLast?'brightness(0.65)':'brightness(0.4)';
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
       if(!card||card===EMPTY_CARD)return;
       const el=buildCard(card);
-      el.style.cssText=`position:absolute;opacity:${0.55+i*0.1};transform:translateY(${yOff}px) scale(${scale});z-index:${i+1};box-shadow:2px 4px 10px rgba(0,0,0,.5);`;
+      el.style.cssText=`flex-shrink:0;opacity:${opacity};filter:${filter};transition:none;`;
       (seat===0?slot0:slot1).appendChild(el);
     });
   });
 
-  // Renderizar cartas de la baza actual (encima, opacidad plena)
+  // Current trick — full brightness, animation
   [0,1].forEach(seat=>{
     const card=seat===0?p0:p1;
     if(!card)return;
     const el=buildCard(card);
     el.classList.add('land-anim');
-    el.style.cssText=`position:absolute;z-index:10;box-shadow:0 6px 20px rgba(0,0,0,.7);`;
+    el.style.cssText='flex-shrink:0;';
     (seat===0?slot0:slot1).appendChild(el);
   });
 
-  // Dots de historial
+  // History dots + result text
   const info=$('centerInfo');info.innerHTML='';
   const hist=h.trickHistory||[];
   if(hist.length){
@@ -660,7 +693,7 @@ function renderTrick(state){
     msg.textContent=last.winner===null?'Parda':`Baza ${hist.length}: ${_lastState?pName(_lastState,last.winner):'J'+last.winner} guanya`;
     info.appendChild(msg);
   }
-}
+}}
 
 function renderActions(state){
   const h=state.hand;
@@ -673,7 +706,9 @@ function renderActions(state){
   const myT=h.turn===mySeat,norm=h.mode==='normal',envDone=h.envit.state!=='none';
   const played=alreadyPlayed(h,mySeat);
   eB.disabled=played||!myT||!h.envitAvailable||envDone||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
-  tB.disabled=played||!myT||!norm||!!h.pendingOffer;
+  const trucDone=h.truc.state!=='none'; // truc ya en juego
+  const trucMaxed=h.pendingOffer?.kind==='truc'&&h.pendingOffer?.level>=4; // ya en val4
+  tB.disabled=played||!myT||!norm||!!h.pendingOffer||trucDone||trucMaxed;
   mB.disabled=played||!myT||!norm||!!h.pendingOffer||getTrickIndex(h)!==0||alreadyPlayed(h,0)||alreadyPlayed(h,1);
   if(h.pendingOffer&&h.turn===mySeat){
     om.textContent=h.pendingOffer.kind==='envit'
