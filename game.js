@@ -424,16 +424,13 @@ async function startOffer(kind){
     }
     if(kind==='truc'){
       if(h.mode!=='normal')return false;
-      // Determine level: if escalating after acceptance, use next level
-      let trucLevel=2;
-      if(h.truc.state==='accepted'&&h.truc.acceptedBy===mySeat){
-        trucLevel=Number(h.truc.acceptedLevel||2)+1;
-        if(trucLevel>4)return false;
-      }else if(h.truc.state!=='none')return false;
+      // Truc only available when truc has never happened
+      if(h.truc.state!=='none')return false;
       h.resume={mode:h.mode,turn:h.turn};
-      h.pendingOffer={kind:'truc',level:trucLevel,by:mySeat,to:other(mySeat)};
+      h.pendingOffer={kind:'truc',level:2,by:mySeat,to:other(mySeat)};
       h.mode='respond_truc';h.turn=other(mySeat);h.envitAvailable=true;
-      pushLog(state,`J${mySeat} canta truc.`);return true;
+      const pn=state.players?.[K(mySeat)]?.name||`J${mySeat}`;
+      pushLog(state,`${pn} canta truc.`);return true;
     }
     return false;
   });
@@ -888,25 +885,25 @@ function renderActions(state){
   // = ninguna baza resuelta aun + nadie ha jugado carta en esta primera baza
   const noTricksPlayed=(h.trickHistory||[]).length===0;
   // Envit ok if: first trick, I haven't played my card yet, no envit done
+  // --- ENVIT / FALTA ---
+  // Available if: no tricks played yet AND I haven't played my first card AND no envit done yet
   const iHaventPlayed=!alreadyPlayed(h,mySeat);
-  const envitOk=noTricksPlayed&&iHaventPlayed&&!envDone;
-  eB.disabled=!envitOk||!myT||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
-  // Falta: same conditions as envit
+  const envitAvailNow=noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none';
+  // Also available when responding to truc (before playing card) - per rules
+  const canEnvitInTruc=noTricksPlayed&&iHaventPlayed&&!envDone&&h.mode==='respond_truc';
+  const envitOk=envitAvailNow||canEnvitInTruc;
+  eB.disabled=!envitOk||!myT||!!h.pendingOffer;
   const fB=$('faltaBtn');
-  if(fB)fB.disabled=!envitOk||!myT||!!h.pendingOffer||(h.mode!=='normal'&&h.mode!=='respond_truc');
-  // Truc button logic:
-  // - Never if truc rejected, at max (4), or offer pending
-  // - Only if truc never happened (state=none) OR we are the responder who accepted and can escalate
-  const trucRejected=h.truc.state==='rejected';
-  const trucLevel=Number(h.truc.acceptedLevel||0);
-  const trucAtMax=h.truc.state==='accepted'&&trucLevel>=4;
+  if(fB)fB.disabled=!envitOk||!myT||!!h.pendingOffer;
+
+  // --- TRUC ---
+  // Rule: once ANY truc has happened (state!='none'), the Trucar button is DISABLED
+  // The only exception is val4 escalation, which appears as a RESPONSE button, not Trucar
+  const trucHappened=h.truc.state!=='none';
   const trucPending=!!h.pendingOffer&&h.pendingOffer.kind==='truc';
-  // Only the player who ACCEPTED (said vull) can escalate to next level
-  // They accepted the challenge, so they can counter-escalate
-  const canEscalate=h.truc.state==='accepted'&&trucLevel<4&&h.truc.acceptedBy===mySeat;
-  const trucNeverHappened=h.truc.state==='none';
-  tB.disabled=played||!myT||!norm||trucPending||trucRejected||trucAtMax||(!trucNeverHappened&&!canEscalate);
-  // Ir al mazo: available any time it's your turn and you haven't played yet
+  tB.disabled=played||!myT||!norm||trucPending||trucHappened;
+
+  // --- MAZO ---
   mB.disabled=played||!myT||!norm||!!h.pendingOffer;
   if(h.pendingOffer&&h.turn===mySeat){
     om.textContent=h.pendingOffer.kind==='envit'
@@ -919,9 +916,13 @@ function renderActions(state){
       if(h.pendingOffer.level===2){add('Torne','abtn-gold',()=>respondEnvit('torne'));add('Falta','abtn-gold',()=>respondEnvit('falta'));}
       else if(h.pendingOffer.level===4)add('Falta','abtn-gold',()=>respondEnvit('falta'));
     }else{
-      // Envit never available once a truc offer is in play
-      // (envitAvailable is only true before first card)
-      add('Vull','abtn-green',()=>respondTruc('vull'));add('No vull','abtn-red',()=>respondTruc('no_vull'));
+      // When responding to truc: can also envit/falta if haven't played yet
+      if(noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none'){
+        add('Envidar','abtn-green',()=>startOffer('envit'));
+        add('Falta','abtn-green',()=>startOffer('falta'));
+      }
+      add('Vull','abtn-green',()=>respondTruc('vull'));
+      add('No vull','abtn-red',()=>respondTruc('no_vull'));
       if(h.pendingOffer.level===2)add('Retruque','abtn-gold',()=>respondTruc('retruque'));
       if(h.pendingOffer.level===3)add('Val 4','abtn-gold',()=>respondTruc('val4'));
     }
