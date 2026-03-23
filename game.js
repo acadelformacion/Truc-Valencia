@@ -239,16 +239,13 @@ function applyHandEnd(state,reason){
     const twName=state.players?.[K(tw)]?.name||`J${tw}`;
     addScore(state,tw,tp);pushLog(state,`Truc: guanya ${twName} (+${tp}).`);if(finish())return;
   }else if(h.truc.state==='none'){
-    if(!h.mazo){
-      // Sin truc y sin mazo: +1 al ganador de las bazas
-      const hw=handWinner(state);
-      if(hw!==null&&hw!==undefined){
-        const hwName=state.players?.[K(hw)]?.name||`J${hw}`;
-        addScore(state,hw,1);pushLog(state,`Ma guanyada per ${hwName} (+1).`);
-      }
-      if(finish())return;
+    // Sin truc: +1 al ganador de la mano
+    const hw=handWinner(state);
+    if(hw!==null&&hw!==undefined){
+      const hwName=state.players?.[K(hw)]?.name||`J${hw}`;
+      addScore(state,hw,1);pushLog(state,`Ma guanyada per ${hwName} (+1).`);
     }
-    // if h.mazo=true, the +1 was already added via scoreAwards, skip here
+    if(finish())return;
   }
   if(reason)pushLog(state,reason);
   pushLog(state,`Marcador: ${getScore(state,0)}-${getScore(state,1)}`);
@@ -279,7 +276,6 @@ function resolveTrick(state){
   // Guardar la baza resuelta en el array de todas las bazas
   const newAllTricks=(h.allTricks||[]).concat([{c0:c0||EMPTY_CARD,c1:c1||EMPTY_CARD,w:w===null?99:w}]);
   h.allTricks=newAllTricks;
-  // Also store as state-level snapshot so it persists after hand ends
   state.lastAllTricks=newAllTricks;
   // RESET played con EMPTY_CARD - nunca borramos el nodo
   resetPlayed(h);
@@ -405,22 +401,9 @@ async function goMazo(){
     const h=state.hand;
     if(!h||state.status!=='playing'||h.status!=='in_progress')return false;
     if(h.turn!==mySeat||h.mode!=='normal'||h.pendingOffer)return false;
-    // Ir al mazo: rival wins the hand
-    const w=other(mySeat);
-    const wName=state.players?.[K(w)]?.name||`J${w}`;
-    h.mazo=true; // flag to skip default +1 in applyHandEnd
-    if(h.truc.state==='accepted'){
-      // Truc was accepted: rival gets the full truc points
-      const tp=Number(h.truc.acceptedLevel||0);
-      addSA(h,w,tp>0?tp:1);
-      pushLog(state,`${wName} guanya +${tp>0?tp:1} (mazo amb truc).`);
-    }else{
-      // No truc: rival gets 1 point
-      addSA(h,w);
-      pushLog(state,`${wName} guanya +1 (mazo).`);
-    }
-    // Override hand winner to be the rival
-    h.mazoWinner=w;
+    // Ir al mazo allowed any time it's your turn
+    const w=other(mySeat);addSA(h,w);
+    pushLog(state,`J${mySeat} al mazo. +1 J${w}.`);
     applyHandEnd(state,'Mazo.');return true;
   });
 }
@@ -430,32 +413,26 @@ async function startOffer(kind){
     const h=state.hand;
     if(!h||state.status!=='playing'||h.status!=='in_progress')return false;
     if(h.turn!==mySeat||h.pendingOffer)return false;
-    if(kind==='envit'||kind==='falta'){
+    if(kind==='envit'){
       if(!(h.mode==='normal'||h.mode==='respond_truc'))return false;
       if(!h.envitAvailable||h.envit.state!=='none')return false;
       h.resume={mode:h.mode,turn:h.turn};
-      const level=kind==='falta'?'falta':2;
-      h.pendingOffer={kind:'envit',level,by:mySeat,to:other(mySeat)};
+      h.pendingOffer={kind:'envit',level:2,by:mySeat,to:other(mySeat)};
       h.mode='respond_envit';h.turn=other(mySeat);
-      const label=kind==='falta'?'falta':'envit';
-      const plName=state.players?.[K(mySeat)]?.name||`J${mySeat}`;
-      pushLog(state,`${plName} canta ${label}.`);return true;
+      pushLog(state,`J${mySeat} canta envit.`);return true;
     }
     if(kind==='truc'){
       if(h.mode!=='normal')return false;
-      let nextLevel=2;
-      if(h.truc.state==='accepted'){
-        // Only the player who accepted can escalate
-        if(h.truc.acceptedBy!==mySeat)return false;
-        nextLevel=Number(h.truc.acceptedLevel||2)+1;
-        if(nextLevel>4)return false;
+      // Determine level: if escalating after acceptance, use next level
+      let trucLevel=2;
+      if(h.truc.state==='accepted'&&h.truc.responder===mySeat){
+        trucLevel=Number(h.truc.acceptedLevel||2)+1;
+        if(trucLevel>4)return false;
       }else if(h.truc.state!=='none')return false;
       h.resume={mode:h.mode,turn:h.turn};
-      h.pendingOffer={kind:'truc',level:nextLevel,by:mySeat,to:other(mySeat)};
+      h.pendingOffer={kind:'truc',level:trucLevel,by:mySeat,to:other(mySeat)};
       h.mode='respond_truc';h.turn=other(mySeat);h.envitAvailable=true;
-      const pn=state.players?.[K(mySeat)]?.name||`J${mySeat}`;
-      const label=nextLevel===2?'truc':nextLevel===3?'retruque':'val 4';
-      pushLog(state,`${pn} canta ${label}.`);return true;
+      pushLog(state,`J${mySeat} canta truc.`);return true;
     }
     return false;
   });
@@ -474,11 +451,9 @@ async function respondEnvit(choice){
     }
     if(choice==='no_vull'){
       h.envit={state:'rejected',caller,responder:resp,acceptedLevel:0,acceptedBy:null};
-      // Points = level of offer being refused (torne=4 -> +2 if refused, envit=2 -> +1)
-      const envitPts=offer.level==='falta'?2:offer.level===4?2:1;
-      addSA(h,caller,envitPts);h.envitAvailable=false;
+      addSA(h,caller);h.envitAvailable=false;
       const callerName0=state.players?.[K(caller)]?.name||`J${caller}`;
-      pushLog(state,`Envit rebutjat. +${envitPts} ${callerName0}.`);resumeOffer(state);return true;
+      pushLog(state,`Envit rebutjat. +1 ${callerName0}.`);resumeOffer(state);return true;
     }
     if(choice==='torne'){
       if(offer.level!==2)return false;
@@ -508,9 +483,11 @@ async function respondTruc(choice){
     }
     if(choice==='no_vull'){
       h.truc={state:'rejected',caller,responder:resp,acceptedLevel:0,acceptedBy:null};
-      addSA(h,caller);h.envitAvailable=false;
+      const noVullPts=Math.max(1,offer.level-1);
+      h.mazo=true;
+      addSA(h,caller,noVullPts);h.envitAvailable=false;
       const callerName1=state.players?.[K(caller)]?.name||`J${caller}`;
-      pushLog(state,`Truc rebutjat. +1 ${callerName1}. Ma perduda.`);
+      pushLog(state,`Truc rebutjat. +${noVullPts} ${callerName1}. Ma perduda.`);
       applyHandEnd(state,'No vull al truc.');return true;
     }
     if(choice==='retruque'){
@@ -541,24 +518,14 @@ async function timeoutTurn(){
         pushLog(state,'Temps. Envit rebutjat auto.');resumeOffer(state);return true;
       }
       if(h.pendingOffer.kind==='truc'){
-        const tw=h.pendingOffer.by;
-        const twn=state.players?.[K(tw)]?.name||`J${tw}`;
-        h.mazo=true;
-        addSA(h,tw);
-        pushLog(state,`${twn} guanya per temps (truc rebutjat).`);
+        addSA(h,h.pendingOffer.by);
+        pushLog(state,`J${mySeat} perd la ma per temps.`);
         applyHandEnd(state,'Temps exhaurit.');return true;
       }
     }
     if(!alreadyPlayed(h,mySeat)&&h.mode==='normal'){
-      const w=other(mySeat);
-      const wn=state.players?.[K(w)]?.name||`J${w}`;
-      h.mazo=true; // skip default +1 in applyHandEnd (the point is already counted below)
-      if(h.truc.state==='accepted'){
-        addSA(h,w,Number(h.truc.acceptedLevel||2));
-      }else{
-        addSA(h,w);
-      }
-      pushLog(state,`${wn} guanya per temps exhaurit.`);
+      addSA(h,other(mySeat));
+      pushLog(state,`J${mySeat} perd la ma per temps.`);
       applyHandEnd(state,'Temps exhaurit.');return true;
     }
     return false;
@@ -843,13 +810,12 @@ function renderTrickSnapshot(snapshot){
   slot0.innerHTML='';slot1.innerHTML='';
   slot0.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
   slot1.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
-  // Show ALL cards at full brightness during countdown/gameover
-  snapshot.allTricks.forEach((t,ii)=>{
+  snapshot.allTricks.forEach((t)=>{
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
       if(!card||card===EMPTY_CARD)return;
       const el=buildCard(card);
-      el.style.cssText='flex-shrink:0;opacity:1;filter:none;';
+      el.style.cssText='flex-shrink:0;opacity:0.85;filter:brightness(0.75);';
       (seat===0?slot0:slot1).appendChild(el);
     });
   });
@@ -874,18 +840,12 @@ function renderTrick(state){
     sl.style.cssText='display:flex;flex-direction:row;align-items:flex-end;justify-content:center;gap:5px;min-width:80px;height:114px;position:relative;';
   });
 
-  // Dim previous tricks only when a new trick is in progress
+  // Previous tricks - only dim when a new card is being played (hasCurrent)
   allT.forEach((t,i)=>{
     const isLastResolved=(i===allT.length-1);
-    let opacity,filt;
-    if(!hasCurrent){
-      // No card currently being played: all at full brightness
-      opacity=1; filt='none';
-    }else{
-      // A card is being played: dim older tricks
-      opacity=isLastResolved?0.7:0.45;
-      filt=isLastResolved?'brightness(0.7)':'brightness(0.4)';
-    }
+    // If nothing playing yet, last resolved trick stays at full brightness
+    const opacity=hasCurrent?(isLastResolved?0.7:0.45):(isLastResolved?1:0.55);
+    const filt=hasCurrent?(isLastResolved?'brightness(0.7)':'brightness(0.4)'):(isLastResolved?'brightness(1)':'brightness(0.65)');
     [0,1].forEach(seat=>{
       const card=seat===0?t.c0:t.c1;
       if(!card||card===EMPTY_CARD)return;
@@ -905,7 +865,20 @@ function renderTrick(state){
     (seat===0?slot0:slot1).appendChild(el);
   });
 
-  // (trick dots removed per request)
+  // History dots + result text
+  const info=$('centerInfo');info.innerHTML='';
+  const hist=h.trickHistory||[];
+  if(hist.length){
+    const dots=document.createElement('div');dots.className='trick-history-dots';
+    hist.forEach(t=>{
+      const d=document.createElement('div');d.className='trick-dot';
+      if(t.winner===99||t.winner===null)d.classList.add('draw');
+      else if(t.winner===mySeat)d.classList.add('won');
+      else d.classList.add('lost');
+      dots.appendChild(d);
+    });
+    info.appendChild(dots);
+  }
 }
 
 function renderActions(state){
@@ -921,35 +894,24 @@ function renderActions(state){
   // Envit: SOLO antes de que cualquiera juegue la primera carta de la mano
   // = ninguna baza resuelta aun + nadie ha jugado carta en esta primera baza
   const noTricksPlayed=(h.trickHistory||[]).length===0;
-  // Envit ok if: first trick, I haven't played my card yet, no envit done
-  // --- ENVIT / FALTA ---
-  // Available if: no tricks played yet AND I haven't played my first card AND no envit done yet
   const iHaventPlayed=!alreadyPlayed(h,mySeat);
-  // h.envitAvailable is the authoritative server-side flag
-  // Also check noTricksPlayed + iHaventPlayed as additional UI guards
-  const envitAvailNow=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none';
-  const canEnvitInTruc=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&h.mode==='respond_truc';
+  // Envit only when no truc has happened at all (not even pending)
+  const noTrucAtAll=h.truc.state==='none'&&!(h.pendingOffer?.kind==='truc');
+  const envitAvailNow=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&noTrucAtAll;
+  const canEnvitInTruc=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&h.mode==='respond_truc'&&h.truc.state==='none';
   const envitOk=envitAvailNow||canEnvitInTruc;
   eB.disabled=!envitOk||!myT||!!h.pendingOffer;
-  const fB=$('faltaBtn');
-  if(fB)fB.disabled=!envitOk||!myT||!!h.pendingOffer;
-
-  // --- TRUC ---
-  // Trucar available if: no truc yet, OR I accepted and can escalate (retruque/val4)
-  const trucAccepted=h.truc.state==='accepted';
-  const trucLevel=Number(h.truc.acceptedLevel||0);
-  const iAccepted=trucAccepted&&h.truc.acceptedBy===mySeat;
-  const canEscalate=iAccepted&&trucLevel<4;
   const trucPending=!!h.pendingOffer&&h.pendingOffer.kind==='truc';
   const trucNone=h.truc.state==='none';
+  const trucAccepted=h.truc.state==='accepted';
+  const trucLevel=Number(h.truc.acceptedLevel||0);
+  // Accepted player can escalate; once accepted it's permanent (no more trucking for caller)
+  const iAccepted=trucAccepted&&h.truc.acceptedBy===mySeat;
+  const canEscalate=iAccepted&&trucLevel<4;
   tB.disabled=played||!myT||!norm||trucPending||(!trucNone&&!canEscalate);
-  // Update button label based on context
-  if(tB&&!tB.disabled){
-    if(canEscalate)tB.textContent=trucLevel===2?'Retrucar':'Val 4';
-    else tB.textContent='Trucar';
-  }else if(tB){tB.textContent='Trucar';}
-
-  // --- MAZO ---
+  if(tB&&!tB.disabled){tB.textContent=canEscalate?(trucLevel===2?'Retrucar':'Val 4'):'Trucar';}
+  else if(tB){tB.textContent='Trucar';}
+  // Ir al mazo: available any time it's your turn and you haven't played yet
   mB.disabled=played||!myT||!norm||!!h.pendingOffer;
   if(h.pendingOffer&&h.turn===mySeat){
     om.textContent=h.pendingOffer.kind==='envit'
@@ -962,13 +924,8 @@ function renderActions(state){
       if(h.pendingOffer.level===2){add('Torne','abtn-gold',()=>respondEnvit('torne'));add('Falta','abtn-gold',()=>respondEnvit('falta'));}
       else if(h.pendingOffer.level===4)add('Falta','abtn-gold',()=>respondEnvit('falta'));
     }else{
-      // When responding to truc: can also envit/falta if haven't played yet and envit available
-      if(h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone){
-        add('Envidar','abtn-green',()=>startOffer('envit'));
-        add('Falta','abtn-green',()=>startOffer('falta'));
-      }
-      add('Vull','abtn-green',()=>respondTruc('vull'));
-      add('No vull','abtn-red',()=>respondTruc('no_vull'));
+      if(h.envitAvailable&&!envDone)add('Envidar','abtn-green',()=>startOffer('envit'));
+      add('Vull','abtn-green',()=>respondTruc('vull'));add('No vull','abtn-red',()=>respondTruc('no_vull'));
       if(h.pendingOffer.level===2)add('Retruque','abtn-gold',()=>respondTruc('retruque'));
       if(h.pendingOffer.level===3)add('Val 4','abtn-gold',()=>respondTruc('val4'));
     }
@@ -1064,22 +1021,22 @@ function renderAll(room){
   renderRivalCards(state.hand?.hands?.[K(other(mySeat))]);
   updateRivalTimer(state);
   renderMyCards(state);
-  // Save trick snapshot: prefer state.lastAllTricks (set when last trick resolved,
-  // includes the final trick) over state.hand.allTricks (may miss last trick)
+  // Save snapshot whenever hand is active
   if(state.hand){
     _lastCompletedTricks={
       allTricks:state.hand.allTricks||[],
       key:real(state.handNumber||OFFSET)+'-'+getTrickIndex(state.hand)
     };
   }
-  if(state.lastAllTricks){
-    // state.lastAllTricks is set in resolveTrick including the final trick
-    const lk='last-'+state.handNumber;
+  // Use state.lastAllTricks (includes the final trick even after hand=null)
+  if(state.lastAllTricks&&state.lastAllTricks.length>0){
+    const lk='lat-'+state.lastAllTricks.length+'-'+state.handNumber;
     if(_lastCompletedTricks?.key!==lk){
       _lastCompletedTricks={allTricks:state.lastAllTricks,key:lk};
+      _prevTrickKey='';
     }
   }
-  // Show snapshot when hand is null (between hands or game over)
+  // Show snapshot when hand is null (between hands or game_over)
   if(!state.hand&&_lastCompletedTricks){
     renderTrickSnapshot(_lastCompletedTricks);
   }else{
@@ -1096,18 +1053,12 @@ function renderAll(room){
       const iWon=state.winner===mySeat;
       setTimeout(()=>{
         $('gameOverOverlay').classList.remove('hidden');
-        $('goTitle').textContent=iWon?'🏆 Has guanyat!':'Has perdut';
+        $('goTitle').textContent=iWon?'[Trophy] Has guanyat!':'Has perdut';
         $('goWinner').textContent=pName(state,state.winner)+' guanya';
         $('goScore').textContent=`${getScore(state,mySeat)} - ${getScore(state,other(mySeat))}`;
         if(iWon){sndWin();startConfetti(true);}
         else{sndLose();startConfetti(false);}
       },3000);
-      // Schedule room deletion after 5 minutes (seat 0 is responsible)
-      if(mySeat===0&&roomRef){
-        setTimeout(async()=>{
-          try{await remove(roomRef);}catch(e){}
-        },5*60*1000);
-      }
     }
     renderRematchStatus(state);
     // Don't return early - let renderTrick show the last cards
@@ -1233,10 +1184,10 @@ function renderRematchStatus(state){
   const myWant=!!(state.rematch?.[K(mySeat)]);
   const rivWant=!!(state.rematch?.[K(other(mySeat))]);
   if(myWant&&!rivWant){
-    btn.disabled=true;btn.textContent='() Esperando revancha...';
+    btn.disabled=true;btn.textContent='(timer) Esperando revancha...';
     st.textContent=`${pName(state,other(mySeat))} no ha respondido aun`;
   }else if(!myWant){
-    btn.disabled=false;btn.textContent='⚔️ Revancha';
+    btn.disabled=false;btn.textContent='vs Revancha';
     st.textContent=rivWant?`${pName(state,other(mySeat))} quiere la revancha!`:'';
   }
 }
@@ -1310,100 +1261,6 @@ function renderAvatars(room){
   });
 }
 
-
-// -- Quick join panel (shown when clicking a room from the list) --------------
-function showQuickJoin(code, hostName){
-  // Remove existing if any
-  const existing=$('qjOverlay');
-  if(existing)existing.remove();
-
-  // Centered overlay modal — only asks for nick
-  const overlay=document.createElement('div');
-  overlay.id='qjOverlay';
-  overlay.className='qj-overlay';
-  overlay.innerHTML=`
-    <div class="qj-modal">
-      <div class="qj-title">Unir-se a la sala de <b>${hostName}</b></div>
-      <div class="lfield" style="margin:12px 0 4px">
-        <label>El teu nom</label>
-        <input id="qjName" type="text" placeholder="Ej. Vicent" maxlength="24" autocomplete="off" />
-      </div>
-      <div class="qj-hint">Podras triar avatar en la seguent pantalla</div>
-      <div class="qj-btns">
-        <button id="qjJoinBtn" class="lbtn lbtn-primary">Entrar!</button>
-        <button id="qjCancelBtn" class="lbtn lbtn-secondary">Cancel.lar</button>
-      </div>
-      <div id="qjMsg" class="lobby-msg"></div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-
-  // Pre-fill saved name
-  const saved=localStorage.getItem('truc_name')||localStorage.getItem('truc_name_key')||'';
-  const nameEl=overlay.querySelector('#qjName');
-  if(saved)nameEl.value=saved;
-  setTimeout(()=>nameEl.focus(),50);
-
-  // Close on backdrop click
-  overlay.addEventListener('click',e=>{ if(e.target===overlay)overlay.remove(); });
-  overlay.querySelector('#qjCancelBtn').addEventListener('click',()=>overlay.remove());
-
-  const doJoin=()=>{
-    const name=normName(nameEl.value);
-    if(!name){overlay.querySelector('#qjMsg').textContent='Escriu el teu nom!';return;}
-    $('nameInput').value=name;
-    $('roomInput').value=code;
-    overlay.remove();
-    joinRoom();
-  };
-  overlay.querySelector('#qjJoinBtn').addEventListener('click',doJoin);
-  nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter')doJoin(); });
-}
-
-
-// -- Available rooms list ---------------------------------------------------
-let _lastRoomListKey='';
-async function loadRoomList(){
-  const listEl=$('roomList');if(!listEl)return;
-  try{
-    const snap=await get(ref(db,'rooms'));
-    const rooms=snap.val();
-    const open=[];
-    if(rooms){
-      for(const[code,room] of Object.entries(rooms)){
-        const st=room?.state;
-        if(!st||st.status==='game_over')continue;
-        const p0=st.players?.[K(0)];
-        const p1=st.players?.[K(1)];
-        if(p0&&!p1){
-          const inactive=Date.now()-(room.lastActivity||0)>3600000;
-          if(!inactive)open.push({code,host:p0.name,createdAt:room.meta?.createdAt||0});
-        }
-      }
-    }
-    open.sort((a,b)=>b.createdAt-a.createdAt);
-    // Only redraw if data actually changed
-    const newKey=open.map(r=>r.code+r.host).join('|');
-    if(newKey===_lastRoomListKey)return;
-    _lastRoomListKey=newKey;
-    listEl.innerHTML='';
-    if(!open.length){
-      listEl.innerHTML='<div class="rl-empty">Cap sala oberta</div>';
-      return;
-    }
-    open.forEach(r=>{
-      const row=document.createElement('div');row.className='rl-row';
-      row.innerHTML=`<div class="rl-info"><span class="rl-code">${r.code}</span><span class="rl-host">${r.host}</span></div><button class="lbtn lbtn-primary rl-join">Unir-se</button>`;
-      row.querySelector('.rl-join').addEventListener('click',()=>{
-        showQuickJoin(r.code, r.host);
-      });
-      listEl.appendChild(row);
-    });
-  }catch(e){
-    // Silently ignore errors to avoid showing flicker
-  }
-}
-
 let unsubMsg=null;
 function startSession(code){
   roomCode=code;roomRef=ref(db,`rooms/${code}`);
@@ -1471,18 +1328,7 @@ async function joinRoom(){
 
 async function leaveRoom(){
   stopBetween();stopTurnTimer();
-  if(roomRef&&mySeat!=null){
-    try{
-      // If game is over, delete the whole room so the code can be reused
-      const snap=await get(roomRef);
-      const st=snap.val()?.state;
-      if(st?.status==='game_over'){
-        await remove(roomRef);
-      }else{
-        await remove(ref(db,`rooms/${roomCode}/state/players/${K(mySeat)}`));
-      }
-    }catch(e){}
-  }
+  if(roomRef&&mySeat!=null){try{await remove(ref(db,`rooms/${roomCode}/state/players/${K(mySeat)}`));}catch(e){}}
   localStorage.removeItem(LS.room);localStorage.removeItem(LS.seat);location.reload();
 }
 
@@ -1505,7 +1351,6 @@ $('guestReadyBtn')?.addEventListener('click',async()=>{
 });
 $('startBtn').addEventListener('click',async()=>{sndBtn();$('waitingOverlay').classList.add('hidden');await dealHand();});
 $('envitBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Envit!');startOffer('envit');});
-$('faltaBtn')?.addEventListener('click',()=>{sndBtn();showTableMsg('Falta!');startOffer('falta');});
 $('trucBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Truc!');startOffer('truc');});
 $('mazoBtn').addEventListener('click',()=>{sndBtn();showTableMsg('Al Mazo');goMazo();});
 $('logToggle').addEventListener('click',()=>{
@@ -1527,10 +1372,6 @@ document.querySelectorAll('.av-opt').forEach((el,i)=>{
 // Restore saved avatar selection
 pickAvatar(myAvatar);
 loadLS();
-// Load available rooms
-loadRoomList();
-// Refresh list every 10s while on lobby
-setInterval(()=>{ if(!$('screenLobby').classList.contains('hidden'))loadRoomList(); },5000);
 (async()=>{
   const _sr=localStorage.getItem(LS.room);
   if(_sr){
