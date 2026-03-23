@@ -277,7 +277,10 @@ function resolveTrick(state){
   h.trickLead=h.turn;
   h.trickIndex=(Number(h.trickIndex||OFFSET))+1;
   // Guardar la baza resuelta en el array de todas las bazas
-  h.allTricks=(h.allTricks||[]).concat([{c0:c0||EMPTY_CARD,c1:c1||EMPTY_CARD,w:w===null?99:w}]);
+  const newAllTricks=(h.allTricks||[]).concat([{c0:c0||EMPTY_CARD,c1:c1||EMPTY_CARD,w:w===null?99:w}]);
+  h.allTricks=newAllTricks;
+  // Also store as state-level snapshot so it persists after hand ends
+  state.lastAllTricks=newAllTricks;
   // RESET played con EMPTY_CARD - nunca borramos el nodo
   resetPlayed(h);
   h.mode='normal';
@@ -538,14 +541,24 @@ async function timeoutTurn(){
         pushLog(state,'Temps. Envit rebutjat auto.');resumeOffer(state);return true;
       }
       if(h.pendingOffer.kind==='truc'){
-        addSA(h,h.pendingOffer.by);
-        pushLog(state,`J${mySeat} perd la ma per temps.`);
+        const tw=h.pendingOffer.by;
+        const twn=state.players?.[K(tw)]?.name||`J${tw}`;
+        h.mazo=true;
+        addSA(h,tw);
+        pushLog(state,`${twn} guanya per temps (truc rebutjat).`);
         applyHandEnd(state,'Temps exhaurit.');return true;
       }
     }
     if(!alreadyPlayed(h,mySeat)&&h.mode==='normal'){
-      addSA(h,other(mySeat));
-      pushLog(state,`J${mySeat} perd la ma per temps.`);
+      const w=other(mySeat);
+      const wn=state.players?.[K(w)]?.name||`J${w}`;
+      h.mazo=true; // skip default +1 in applyHandEnd (the point is already counted below)
+      if(h.truc.state==='accepted'){
+        addSA(h,w,Number(h.truc.acceptedLevel||2));
+      }else{
+        addSA(h,w);
+      }
+      pushLog(state,`${wn} guanya per temps exhaurit.`);
       applyHandEnd(state,'Temps exhaurit.');return true;
     }
     return false;
@@ -912,9 +925,10 @@ function renderActions(state){
   // --- ENVIT / FALTA ---
   // Available if: no tricks played yet AND I haven't played my first card AND no envit done yet
   const iHaventPlayed=!alreadyPlayed(h,mySeat);
-  const envitAvailNow=noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none';
-  // Also available when responding to truc (before playing card) - per rules
-  const canEnvitInTruc=noTricksPlayed&&iHaventPlayed&&!envDone&&h.mode==='respond_truc';
+  // h.envitAvailable is the authoritative server-side flag
+  // Also check noTricksPlayed + iHaventPlayed as additional UI guards
+  const envitAvailNow=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none';
+  const canEnvitInTruc=h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone&&h.mode==='respond_truc';
   const envitOk=envitAvailNow||canEnvitInTruc;
   eB.disabled=!envitOk||!myT||!!h.pendingOffer;
   const fB=$('faltaBtn');
@@ -948,8 +962,8 @@ function renderActions(state){
       if(h.pendingOffer.level===2){add('Torne','abtn-gold',()=>respondEnvit('torne'));add('Falta','abtn-gold',()=>respondEnvit('falta'));}
       else if(h.pendingOffer.level===4)add('Falta','abtn-gold',()=>respondEnvit('falta'));
     }else{
-      // When responding to truc: can also envit/falta if haven't played yet
-      if(noTricksPlayed&&iHaventPlayed&&!envDone&&h.truc.state==='none'){
+      // When responding to truc: can also envit/falta if haven't played yet and envit available
+      if(h.envitAvailable&&noTricksPlayed&&iHaventPlayed&&!envDone){
         add('Envidar','abtn-green',()=>startOffer('envit'));
         add('Falta','abtn-green',()=>startOffer('falta'));
       }
@@ -1050,14 +1064,22 @@ function renderAll(room){
   renderRivalCards(state.hand?.hands?.[K(other(mySeat))]);
   updateRivalTimer(state);
   renderMyCards(state);
-  // Save trick snapshot whenever we have an active hand
+  // Save trick snapshot: prefer state.lastAllTricks (set when last trick resolved,
+  // includes the final trick) over state.hand.allTricks (may miss last trick)
   if(state.hand){
     _lastCompletedTricks={
       allTricks:state.hand.allTricks||[],
       key:real(state.handNumber||OFFSET)+'-'+getTrickIndex(state.hand)
     };
   }
-  // Show snapshot (not blank) when hand is null (between hands or game over)
+  if(state.lastAllTricks){
+    // state.lastAllTricks is set in resolveTrick including the final trick
+    const lk='last-'+state.handNumber;
+    if(_lastCompletedTricks?.key!==lk){
+      _lastCompletedTricks={allTricks:state.lastAllTricks,key:lk};
+    }
+  }
+  // Show snapshot when hand is null (between hands or game over)
   if(!state.hand&&_lastCompletedTricks){
     renderTrickSnapshot(_lastCompletedTricks);
   }else{
