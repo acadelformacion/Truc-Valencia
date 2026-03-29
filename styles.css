@@ -990,7 +990,7 @@ h1 .hi { color: var(--gold); }
 }
 .qj-title { font-size: 14px; color: var(--text); text-align: center; }
 .qj-title b { color: var(--gold); }
-.qj-av-label { font-size: 11px; color: rgba(255,255,255,.5); text-align: center; }
+.qj-av-label { font-size: 11px; color: rgba(255, 255, 255, 0.485); text-align: center; }
 .qj-avs { justify-content: center; }
 .qj-btns { display: flex; gap: 8px; }
 .qj-btns .lbtn { flex: 1; padding: 10px !important; font-size: 14px !important; }
@@ -1075,22 +1075,11 @@ h1 .hi { color: var(--gold); }
   border-radius: 2px;
 }
 
-/* Efecto para la carta que gana la baza: se acerca al centro */
-.trick-cell-rival .trick-winner {
-  transform: translateY(15px);
-  z-index: 10;
-}
-
-.trick-cell-mine .trick-winner {
-  transform: translateY(-15px);
-  z-index: 10;
-}
-
 /* Borde dorado para la carta ganadora */
 .trick-winner {
   outline: 2px solid #ffd700;
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 /* Ajuste para móviles: cartas un poco más pequeñas */
@@ -1207,7 +1196,7 @@ h1 .hi { color: var(--gold); }
 .qj-content {
   background: #1e4d2b; /* Verde tipo mesa de Truc/Casino */
   padding: 15px;
-  border: 2px solid gold; /* Un poco más de borde para que resalte */
+  border: 2px solid white; /* Un poco más de borde para que resalte */
   border-radius: 12px;
   width: 85%;
   max-width: 240px;
@@ -1228,7 +1217,7 @@ h1 .hi { color: var(--gold); }
 #qj-name-input {
   width: 100%; padding: 10px; margin-bottom: 15px;
   background: rgba(0,0,0,0.3); /* Fondo oscuro semitransparente */
-  border: 1px solid gold;
+  border: 1px solid rgb(255, 255, 255);
   border-radius: 6px; color: white; text-align: center;
   font-size: 16px; /* Tamaño ideal para que no haga zoom el iPhone */
 }

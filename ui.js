@@ -656,16 +656,23 @@ function renderActions(state) {
 
     om.classList.remove('hidden');
     ra.classList.remove('hidden');
-
     if (h.pendingOffer.kind === 'envit') {
       add('Vull', 'abtn-green', () => respondEnvit('vull'));
       add('No vull', 'abtn-red', () => respondEnvit('no_vull'));
-      const niv = h.pendingOffer.level === 'falta' ? 10 : Number(h.pendingOffer.level);
-      if (niv === 2) {
-        add('Torne', 'abtn-gold', () => respondEnvit('torne'));
-        add('Falta', 'abtn-gold', () => respondEnvit('falta'));
-      } else if (niv === 4) {
-        add('Falta', 'abtn-gold', () => respondEnvit('falta'));
+      
+      // Comprobamos si es falta (haciéndolo a prueba de fallos por si el texto llega en mayúsculas)
+      const levelStr = String(h.pendingOffer.level).toLowerCase();
+      const isFalta = levelStr === 'falta' || (h.envit && h.envit.state === 'falta');
+      
+      // Solo mostramos los botones de subida si NO es una falta
+      if (!isFalta) {
+        const niv = Number(h.pendingOffer.level);
+        if (niv === 2) {
+          add('Torne', 'abtn-gold', () => respondEnvit('torne'));
+          add('Falta', 'abtn-gold', () => respondEnvit('falta'));
+        } else if (niv === 4) {
+          add('Falta', 'abtn-gold', () => respondEnvit('falta'));
+        }
       }
     } else {
       if (envitOk) {
