@@ -25,6 +25,12 @@ import {
   claimWinByRivalAbsence,
   guestReady
 } from './acciones.js';
+let _actionInProgress = false;
+// Sincronizar ui.locked con _actionInProgress para que se bloqueen juntos
+Object.defineProperty(ui, 'locked', {
+  get() { return this._locked; },
+  set(v) { this._locked = v; if(v) _actionInProgress = true; else _actionInProgress = false; }
+});
 // --- SISTEMA DE FRASES GLOBAL (Al principio del archivo) ---
 window.canChat = true;
 window.mySelectedPhrases = [];
@@ -342,21 +348,21 @@ function buildBack(){const el=document.createElement('div');el.className='card-b
 
 // -- Show action label in center of table --------------------------------------
 // --- Nueva función de mensajes con "Bocadillos" y sincronización ---
-export function showTableMsg(text, isMine = true) {
-  // A. PARTE VISUAL (Lo que ves tú)
+// Solo muestra la animación visual, sin escribir a Firebase
+function showTableMsgLocal(text, isMine = true) {
   const bubble = document.createElement('div');
   bubble.className = `table-msg-bubble ${isMine ? 'msg-mine' : 'msg-rival'}`;
   bubble.textContent = text.toUpperCase() + '!';
   document.body.appendChild(bubble);
-
   setTimeout(() => { if(bubble) bubble.remove(); }, 1800);
+}
 
-  // B. PARTE DE RED (Solo si yo soy el que ha pulsado el botón)
+// Envía a Firebase Y muestra local — solo llamar desde botones propios
+export function showTableMsg(text, isMine = true) {
+  showTableMsgLocal(text, isMine);
   if (isMine && session.roomCode) {
     set(ref(db, `rooms/${session.roomCode}/msg`), {
-      text: text,
-      at: Date.now(),
-      sender: session.mySeat // <--- ESTO ES VITAL para el punto 1
+      text, at: Date.now(), sender: session.mySeat
     }).catch(() => {});
   }
 }
@@ -608,6 +614,7 @@ function renderTrick(state){
   }
 }
 function renderActions(state) {
+  if(_actionInProgress) return; // ← no reconstruir mientras hay acción en curso
   const h = state.hand;
   const eB = $('envitBtn'), tB = $('trucBtn'), mB = $('mazoBtn'), fB = $('faltaBtn');
   const ra = $('responseArea'), om = $('offerMsg');
@@ -1157,23 +1164,15 @@ export function startSession(code){
   if(unsubMsg) unsubMsg();
   let lastMsgAt = 0;
 
-unsubMsg = onValue(ref(db, `rooms/${code}/msg`), snap => {
+  unsubMsg = onValue(ref(db, `rooms/${code}/msg`), snap => {
     const m = snap.val();
-    // 1. Si no hay mensaje o es el mismo de antes, ignorar
     if(!m || m.at <= lastMsgAt) return;
-    
     lastMsgAt = m.at;
-
-    // 2. Comprobar si han pasado menos de 5 segundos (para no ver gritos viejos al entrar)
     if(m.at > Date.now() - 5000) {
-        // 3. COMPARACIÓN REAL: ¿El que envió el mensaje soy yo?
-        // Comparamos el sender del mensaje con mi asiento actual
-        const isMine = (m.sender === session.mySeat);
-        
-        // Lanzamos la animación
-        showTableMsg(m.text, isMine);
+      const isMine = (m.sender === session.mySeat);
+      showTableMsgLocal(m.text, isMine); // ← local, no escribe a Firebase
     }
-});
+  });
 
   // 4. Sistema de presencia (jugador conectado/desconectado)
   if(session.mySeat !== null){
@@ -1523,4 +1522,3 @@ document.addEventListener('click', function(e) {
     menu.classList.remove('active');
   }
 });
-let _actionInProgress = false;

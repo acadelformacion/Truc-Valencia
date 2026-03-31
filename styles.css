@@ -30,13 +30,7 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
 
 /* ══ LOBBY ══════════════════════════════ */
 /* ── LOBBY SCREEN ────────────────────────────────────── */
-#screenLobby {
-  position: relative;
-  align-items: center;
-  justify-content: center;
-  /* fondo.jpg cubre todo con blur via filter en el pseudoelemento */
-  background: url("Media/Images/Others/fondo.jpg") center/cover no-repeat fixed, var(--bg);
-}
+
 /* Capa de blur + oscurecimiento SIN pointer-events para no bloquear clicks */
 #screenLobby::before {
   content: "";
@@ -136,8 +130,13 @@ h1 .hi { color: var(--gold); }
 
 /* Rival */
 #rivalZone { display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 1; width: 100%; }
-.player-name { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .5px; }
-.rival-cards { display: flex; justify-content: center; position: relative; height: 90px; }
+.player-name { 
+  font-size: 17px !important; 
+  font-weight: 700 !important; 
+  color: white;
+  text-shadow: 0px 1px 4px rgba(0,0,0,0.8); /* Sombreado para que no se pierda con el fondo */
+  white-space: nowrap;
+}
 .rival-card-slot { position: absolute; transition: transform .4s ease, opacity .4s ease; }
 .rival-card-slot:nth-child(1) { transform: translateX(-54px) rotate(-9deg); }
 .rival-card-slot:nth-child(2) { transform: translateX(0)     rotate(0deg); z-index: 2; }
@@ -148,15 +147,9 @@ h1 .hi { color: var(--gold); }
 
 /* Centro */
 #centerZone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 1; }
-.trick-area { display: flex; align-items: center; gap: 28px; }
-.trick-slot { width: 80px; min-height: 114px; display: flex; align-items: center; justify-content: center; }
+.trick-area { display: flex; align-items: center; gap: 16px; }
 .trick-divider { width: 1px; height: 70px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,.12), transparent); }
 .center-info { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .4px; min-height: 18px; text-align: center; }
-.trick-history-dots { display: flex; gap: 8px; align-items: center; }
-.trick-dot { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--border); }
-.trick-dot.won  { background: var(--green); border-color: var(--green); }
-.trick-dot.lost { background: var(--red);   border-color: var(--red); }
-.trick-dot.draw { background: var(--gold);  border-color: var(--gold); }
 
 /* Mi zona */
 #myZone { 
@@ -241,17 +234,38 @@ h1 .hi { color: var(--gold); }
 .offer-msg.hidden { display: none !important; }
 .action-btns { display: flex; gap: 10px; justify-content: center; }
 
-.abtn:active { transform: translateY(1px); }
-.abtn:disabled { opacity: .3; cursor: not-allowed; filter: grayscale(.4); transform: none; }
 .response-area { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .response-area.hidden { display: none !important; }
 .status-msg { text-align: center; font-size: 13px; color: var(--muted); min-height: 18px; }
 
 /* ══ SIDE INFO ══════════════════════════ */
 #sideInfo { position: fixed; right: 12px; top: 68px; z-index: 40; display: flex; flex-direction: column; gap: 6px; }
-.si-block { background: rgba(0,0,0,.45); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; text-align: right; }
-.si-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--dim); }
-.si-block > div:last-child { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 1px; }
+.si-block {
+  background: rgba(0,0,0,.45);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px !important;
+  min-width: 80px !important;
+  text-align: right;
+}
+
+.si-lbl {
+  font-size: 10px !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--dim);
+}
+
+#sideInfo .si-block > div:last-child {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.si-block > div:last-child {
+  color: var(--text);
+  margin-top: 1px;
+}
 
 /* ══ LOG PANEL (Ajustado: más bajo y más pequeño) ══ */
 #logPanel { 
@@ -360,20 +374,7 @@ h1 .hi { color: var(--gold); }
   -webkit-backdrop-filter: blur(8px);
   z-index: 0;
 }
-#waitingOverlay .overlay-card {
-  position: relative; z-index: 1;
-  background: rgba(10,18,14,.92) !important;
-  border: 1px solid rgba(255,255,255,.12) !important;
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.7);
-}
-#waitingOverlay .overlay-card {
-  position: relative; z-index: 1;
-  background: rgba(10,18,14,.90);
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.6);
-}
+
 .overlay.hidden { display: none !important; }
 
 /* Countdown entre manos: flotante, semitransparente, no tapa el tablero */
@@ -430,7 +431,6 @@ h1 .hi { color: var(--gold); }
   #logPanel { display: none; }
   #chatPanel { width: 200px; }
   .playing-card, .card-back { width: 64px; height: 96px; }
-  .trick-slot { width: 68px; min-height: 100px; }
   .overlay-card { padding: 28px 24px; }
   .waiting-code { font-size: 42px; }
 }
@@ -447,28 +447,11 @@ h1 .hi { color: var(--gold); }
 .rival-header {
   display: flex; align-items: center; gap: 8px; justify-content: center;
 }
-.turn-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 8px rgba(232,171,42,.8), 0 0 16px rgba(232,171,42,.4);
-  animation: dotPulse 1s ease-in-out infinite;
-}
-.turn-dot.hidden { display: none !important; }
-@keyframes dotPulse {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.4); opacity: .6; }
-}
 
 /* ── MY TURN INDICATOR on action panel ── */
 #statusMsg.my-turn {
   color: var(--gold);
   font-weight: 700;
-}
-
-/* ── Trick stack card sizing ── */
-.trick-slot {
-  width: 100px !important;
-  min-height: 120px;
 }
 
 /* ── GAME OVER ── */
@@ -497,33 +480,6 @@ h1 .hi { color: var(--gold); }
   transition: transform .3s ease, opacity .3s ease;
 }
 
-/* ── TRICK SLOT wider for stacked cards ── */
-.trick-slot {
-  width: 110px !important;
-  min-height: 140px !important;
-  position: relative !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
-}
-
-/* ── CIRCULAR TIMER RINGS ── */
-.timer-ring {
-  width: 32px; height: 32px; flex-shrink: 0;
-  transform: rotate(-90deg); /* start at top */
-}
-.timer-ring-bg  { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 3; }
-.timer-ring-arc {
-  fill: none; stroke: #2ea043; stroke-width: 3;
-  stroke-linecap: round;
-  stroke-dasharray: 94.25 94.25; /* full circle */
-  transition: stroke-dasharray .9s linear, stroke .3s ease;
-}
-.timer-ring.hidden { display: none !important; }
-
-/* Hide old turn dot */
-.turn-dot { display: none !important; }
-
 /* ── LOBBY: full bleed background, no black bar ── */
 /* green lobby panel handled in main block */
 /* Also for waitingOverlay card */
@@ -545,9 +501,6 @@ h1 .hi { color: var(--gold); }
   justify-content: center !important;
   gap: 5px !important;
 }
-.trick-area {
-  gap: 16px !important;
-}
 
 /* ── LOBBY TAGLINE ── */
 .lobby-tagline {
@@ -560,16 +513,12 @@ h1 .hi { color: var(--gold); }
 /* ── LOBBY: Contenedor del fondo ── */
 #screenLobby {
   display: flex;
-  flex-direction: column; /* Flujo de arriba a abajo */
-  
+  flex-direction: column;
+  background: url("Media/Images/Others/fondo.jpg") center/cover no-repeat fixed, var(--bg); /* ← añadir */
   min-height: 100vh !important;
   min-height: 100dvh !important;
-  
-  /* El scroll ahora lo gestionamos aquí */
   overflow-y: auto !important;
-  
-  /* Quitamos el padding del padre que fallaba */
-  padding: 0 !important; 
+  padding: 24px 0;
   box-sizing: border-box;
 }
 
@@ -643,7 +592,7 @@ h1 .hi { color: var(--gold); }
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%,-50%);
-  font-size: 22px; font-weight: 900;
+  font-size: 36px; font-weight: 900;
   color: var(--gold);
   text-shadow: 0 2px 12px rgba(0,0,0,.8);
   pointer-events: none;
@@ -720,52 +669,8 @@ h1 .hi { color: var(--gold); }
   background: none !important;
 }
 
-/* ── CARD BACK with logo ── */
-.card-back {
-  background-image: url('Media/Images/Others/portada.png') !important;
-  background-size: 55% auto !important;
-  background-repeat: no-repeat !important;
-  background-position: center !important;
-}
-.card-back::after {
-  display: none !important;
-}
-
 /* ── BAZA TEXT: EMPAT in gold ── */
 .baza-empat { color: #f0b429 !important; font-weight: 700; }
-
-/* ── 1. Restore original card back ── */
-.card-back {
-  background: repeating-linear-gradient(45deg, #1a3a2a, #1a3a2a 2px, #0d2018 2px, #0d2018 8px) !important;
-  background-image:
-    repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0, rgba(255,255,255,.04) 1px, transparent 1px, transparent 6px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.04) 0, rgba(255,255,255,.04) 1px, transparent 1px, transparent 6px),
-    linear-gradient(135deg, #0f2b1a 0%, #1e4d2a 50%, #0f2b1a 100%) !important;
-}
-.card-back::after {
-  content: 'T' !important;
-  display: flex !important;
-  font-family: 'Crimson Pro', serif !important;
-  font-size: 28px !important;
-  font-weight: 600 !important;
-  color: rgba(255,255,255,.15) !important;
-  font-style: italic !important;
-  align-items: center; justify-content: center;
-  width: 100%; height: 100%;
-  position: absolute; inset: 0;
-}
-
-/* ── 2. Bigger table message ── */
-.table-msg { font-size: 36px !important; }
-
-/* ── 3. Bigger player names (Ahora con sombra para leerse mejor) ── */
-.player-name { 
-  font-size: 17px !important; 
-  font-weight: 700 !important; 
-  color: white;
-  text-shadow: 0px 1px 4px rgba(0,0,0,0.8); /* Sombreado para que no se pierda con el fondo */
-  white-space: nowrap;
-}
 
 /* ── REUBICACIÓN DE AVATARES (Posición final) ── */
 .rival-header {
@@ -788,11 +693,6 @@ h1 .hi { color: var(--gold); }
   gap: 12px;
   z-index: 50;
 }
-
-/* ── 4. Bigger sideInfo blocks ── */
-.si-block { padding: 6px 10px !important; min-width: 80px !important; }
-.si-lbl   { font-size: 10px !important; }
-#sideInfo .si-block > div:last-child { font-size: 14px !important; font-weight: 700 !important; }
 
 /* ── 6. Absence notification ── */
 .absence-notif {
@@ -857,13 +757,6 @@ h1 .hi { color: var(--gold); }
   border: 4px solid gold !important; 
   box-shadow: 0 0 15px rgba(232,171,42,0.6) !important; 
   transform: scale(1.05);
-}
-
-/* Para que tus imágenes PNG se vean bien dentro */
-.av-opt img { 
-  width: 100% !important; 
-  height: 100% !important; 
-  object-fit: cover !important;
 }
 
 /* Mantenemos los avatares pequeños de la mesa igual */
@@ -978,9 +871,6 @@ h1 .hi { color: var(--gold); }
 .rl-host { font-size: 11px; color: rgba(255,255,255,.6); }
 .rl-join { padding: 6px 14px !important; font-size: 13px !important; flex-shrink: 0; }
 
-/* -- Remove trick dots CSS (already removed from JS) -- */
-.trick-history-dots, .trick-dot { display: none !important; }
-
 /* -- Quick join panel -- */
 .quick-join-panel {
   background: rgba(0,0,0,.3);
@@ -1012,16 +902,7 @@ h1 .hi { color: var(--gold); }
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
 }
-.qj-modal {
-  background: rgba(20,90,45,.96);
-  border: 1px solid rgba(255,255,255,.18);
-  border-radius: 18px;
-  padding: 24px 22px;
-  width: 100%; max-width: 320px;
-  display: flex; flex-direction: column; gap: 4px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.7);
-  animation: fadeSlideIn .2s ease;
-}
+
 .qj-hint {
   font-size: 11px; color: rgba(255,255,255,.45);
   text-align: center; margin-bottom: 8px; font-style: italic;
@@ -1096,7 +977,6 @@ h1 .hi { color: var(--gold); }
 
 /* --- 1. ARREGLO GLOBAL PARA AVATARES --- */
 /* (Esto hace que las fotos de los avatares se vean bien) */
-.player-av-sm img, 
 .player-av img, 
 .av-opt img {
   width: 100% !important;
