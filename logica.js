@@ -158,6 +158,17 @@ export function applyHandEnd(state, reason, foldedSeat) {
     pushLog(state, isFold ? `Envit: guanya ${ewName} per abandó (+${ep}).` : `Envit: guanya ${ewName} (+${ep}).`);
     if(finish())return;
   } 
+  else if(h.envit.state==='rejected' && h.envit.caller !== undefined && h.envit.caller !== null){
+    // NUEVO BLOQUE: aplica el punto del envit rechazado aquí mismo,
+    // sin depender de scoreAwards escrito en una transacción anterior
+    const ec = h.envit.caller;
+    const lvl = h.envit.offeredLevel;
+    const ep = (lvl === 4 || lvl === 'falta') ? 2 : 1;
+    addScore(state, ec, ep);
+    const ewName = state.players?.[K(ec)]?.name || `J${ec}`;
+    pushLog(state, `Envit rebutjat: guanya ${ewName} (+${ep}).`);
+    if(finish()) return;
+  }
   else if (isFold && h.pendingOffer?.kind === 'envit') {
     // ¡AQUÍ ESTÁ EL CAMBIO! Si alguien se va al mazo con un envite/falta pendiente de responder:
     const off = h.pendingOffer;
@@ -167,6 +178,14 @@ export function applyHandEnd(state, reason, foldedSeat) {
     
     addScore(state, winnerSeat, puntos);
     pushLog(state, `Envit abandonat: +${puntos} per al rival.`);
+    if(finish()) return;
+  }
+  else if (isFold && h.envit.state === 'none' && (h.trickHistory||[]).length === 0) {
+    // Timeout/fold en el primer turno sin ningún envit negociado:
+    // el jugador pierde automáticamente el punto de envit
+    addScore(state, winnerSeat, 1);
+    const wName = state.players?.[K(winnerSeat)]?.name || `J${winnerSeat}`;
+    pushLog(state, `Temps: +1 envit per a ${wName}.`);
     if(finish()) return;
   }
 

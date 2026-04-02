@@ -614,7 +614,16 @@ function renderTrick(state){
   }
 }
 function renderActions(state) {
-  if(_actionInProgress) return; // ← no reconstruir mientras hay acción en curso
+  if(_actionInProgress) {
+    ['envitBtn', 'faltaBtn', 'trucBtn', 'mazoBtn'].forEach(id => {
+      const b = $(id); if(b) b.classList.add('hidden');
+    });
+    const ra = $('responseArea');
+    if(ra) { ra.innerHTML = ''; ra.classList.add('hidden'); }
+    const om = $('offerMsg');
+    if(om) om.classList.add('hidden');
+    return;
+  }
   const h = state.hand;
   const eB = $('envitBtn'), tB = $('trucBtn'), mB = $('mazoBtn'), fB = $('faltaBtn');
   const ra = $('responseArea'), om = $('offerMsg');
@@ -702,25 +711,32 @@ function renderActions(state) {
       if (h.pendingOffer.level === 3) add('Val 4', 'abtn-gold', () => respondTruc('val4'));
     }
   } else if (myT && norm) {
-    // CASO B: Es mi turno normal (Cantar)
-    if (envitOk) {
-      if ($('envitBtn')) $('envitBtn').classList.remove('hidden');
-      if ($('faltaBtn')) $('faltaBtn').classList.remove('hidden');
-    }
-    if (!played) {
-      const trucNone = h.truc.state === 'none';
-      const iAccepted = h.truc.state === 'accepted' && h.truc.acceptedBy === session.mySeat;
-      const canEscalate = iAccepted && Number(h.truc.acceptedLevel || 0) < 4;
-      if (trucNone || canEscalate) {
-        const tb = $('trucBtn');
-        if (tb) {
-          tb.textContent = canEscalate ? (Number(h.truc.acceptedLevel || 0) === 2 ? 'Retrucar' : 'Val 4') : 'Trucar';
-          tb.classList.remove('hidden');
-        }
+    // Jugada consecutiva obligatoria: gané la baza anterior y debo liderar la siguiente
+    // En este caso no se permite ninguna acción, solo tirar carta
+    const tricksDone = (h.trickHistory || []).length;
+    const isConsecutivePlay = tricksDone > 0 && h.trickLead === session.mySeat && !played;
+
+    if (!isConsecutivePlay) {
+      // CASO B normal: Es mi turno normal (Cantar)
+      if (envitOk) {
+        if ($('envitBtn')) $('envitBtn').classList.remove('hidden');
+        if ($('faltaBtn')) $('faltaBtn').classList.remove('hidden');
       }
-      if (!bloqueoInicio && $('mazoBtn')) $('mazoBtn').classList.remove('hidden');
+      if (!played) {
+        const trucNone = h.truc.state === 'none';
+        const iAccepted = h.truc.state === 'accepted' && h.truc.acceptedBy === session.mySeat;
+        const canEscalate = iAccepted && Number(h.truc.acceptedLevel || 0) < 4;
+        if (trucNone || canEscalate) {
+          const tb = $('trucBtn');
+          if (tb) {
+            tb.textContent = canEscalate ? (Number(h.truc.acceptedLevel || 0) === 2 ? 'Retrucar' : 'Val 4') : 'Trucar';
+            tb.classList.remove('hidden');
+          }
+        }
+        if (!bloqueoInicio && $('mazoBtn')) $('mazoBtn').classList.remove('hidden');
+      }
     }
-  }
+}
 
   // 4. MENSAJES DE ESTADO (TURNOS) - ¡Esto es lo que faltaba dentro!
   const sm = $('statusMsg');
@@ -733,7 +749,9 @@ function renderActions(state) {
     } else if (!myT && !played) {
       sm.textContent = `Torn de ${pName(state, h.turn)}`;
     } else if (!played && norm && !h.pendingOffer) {
-      sm.textContent = 'El teu torn, tria carta o acció';
+      const tricksDone = (h.trickHistory || []).length;
+      const isConsecutivePlay = tricksDone > 0 && h.trickLead === session.mySeat;
+      sm.textContent = isConsecutivePlay ? 'Tira la teua carta' : 'El teu torn, tria carta o acció';
       sm.classList.add('my-turn');
     } else {
       sm.textContent = '';

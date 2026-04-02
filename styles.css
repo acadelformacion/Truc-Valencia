@@ -34,12 +34,13 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
 /* Capa de blur + oscurecimiento SIN pointer-events para no bloquear clicks */
 #screenLobby::before {
   content: "";
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
   background: rgba(0,0,0,.5);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   z-index: 0;
-  pointer-events: none; /* ← crítico: no bloquear clicks */
+  pointer-events: none;
 }
 /* El panel verde debe quedar encima de la capa de blur */
 .lobby-wrap {
@@ -47,12 +48,13 @@ html, body { height: 100%; overflow: hidden; font-family: 'Outfit', sans-serif; 
   z-index: 1;
   width: 90%;
   max-width: 360px;
-  padding: 28px 24px;
+  padding: 16px 20px;
   display: flex; flex-direction: column; gap: 20px;
   background: lab(33.24% -32.48 19.97 / 0.93); /* verde tapete */
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 20px;
   box-shadow: 0 24px 64px rgba(0,0,0,.7);
+  gap: 12px;
 }
 .lobby-header { text-align: center; }
 .lobby-portada { width: 200px; height: auto; border-radius: 8px; margin-bottom: 2px; display: block; margin-left: auto; margin-right: auto; object-fit: cover; }
@@ -65,13 +67,13 @@ h1 { font-size: 34px; font-weight: 900; letter-spacing: -1px; color: var(--text)
 h1 .hi { color: var(--gold); }
 .lobby-sub { font-size: 13px; font-weight: 300; color: var(--muted); margin-top: 4px; }
 .lobby-card { display: flex; flex-direction: column; }
-.lfield { display: flex; flex-direction: column; margin-bottom: 14px; }
+.lfield { display: flex; flex-direction: column; margin-bottom: 8px; }
 .lfield label { font-size: 14px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-.lfield input { background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; font: inherit; font-size: 15px; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+.lfield input { background: rgba(0,0,0,.3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 13px; font: inherit; font-size: 15px; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
 .lfield input::placeholder { color: var(--dim); }
 .lfield input:focus { border-color: rgba(232,171,42,.5); box-shadow: 0 0 0 3px rgba(232,171,42,.1); }
 .lobby-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
-.lbtn { font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; border: none; border-radius: 10px; padding: 13px; cursor: pointer; transition: opacity .15s, transform .07s; }
+.lbtn { font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; border: none; border-radius: 10px; padding: 10px; cursor: pointer; transition: opacity .15s, transform .07s; }
 .lbtn:active { transform: translateY(1px); }
 .lbtn-primary  { background: var(--gold); color: #0b1512; }
 .lbtn-primary:hover { opacity: .9; }
@@ -546,14 +548,8 @@ h1 .hi { color: var(--gold); }
 }
 /* ── LOBBY: Contenedor del fondo ── */
 #screenLobby {
-  display: flex;
-  flex-direction: column;
-  background: url("Media/Images/Others/fondo.jpg") center/cover no-repeat fixed, var(--bg); /* ← añadir */
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
-  overflow-y: auto !important;
-  padding: 24px 0;
-  box-sizing: border-box;
+  background: url("Media/Images/Others/fondo.jpg") center/cover no-repeat, var(--bg);
+  overflow-y: auto;
 }
 
 /* ── EL RECUADRO (El div de dentro) ── */
@@ -1013,8 +1009,9 @@ h1 .hi { color: var(--gold); }
 @media (min-width: 1024px) {
   /* Bajamos de 130px a 105px para que no se dispare el tamaño */
   .playing-card, .trick-cell-rival, .trick-cell-mine {
-    width: 105px;
-    height: 153px;
+    width: 90px;
+    aspect-ratio: 105 / 153;
+    height: auto;
   }
 }  
   /* Contenedores de la mesa */
@@ -1024,7 +1021,7 @@ h1 .hi { color: var(--gold); }
   align-items: center;
   position: relative;
   /* El 'perspective' es clave para el 3D */
-  perspective: 600px; 
+  perspective: 400px; 
 }
 
 /* LA REGLA MAESTRA: Cualquier carta o imagen dentro de la mesa */
@@ -1036,14 +1033,14 @@ h1 .hi { color: var(--gold); }
   transform: rotateX(25deg) !important; 
   
   /* Sombra para que parezca apoyada */
-  box-shadow: 0 8px 15px rgba(0,0,0,0.4) !important;
+  box-shadow: 0 18px 25px rgba(0,0,0,0.4) !important;
   
   /* Aseguramos que ocupe todo el hueco */
   width: 100% !important;
   height: 100% !important;
   margin: 0 !important;
   
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 /* Separador invisible o línea sutil entre cartas */

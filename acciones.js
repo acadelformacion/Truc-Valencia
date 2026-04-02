@@ -202,16 +202,7 @@ export async function respondEnvit(choice){
       resumeOffer(state);return true;
     }
     if(choice==='no_vull'){
-      h.envit={state:'rejected', caller, responder:resp, acceptedLevel:0, acceptedBy:null};
-      
-      // LÓGICA DE PUNTOS DINÁMICA:
-      // Si h.resume.oldOffer existe, significa que esto es una contra-oferta (ej: Envit -> Falta).
-      // En ese caso, al decir "No vull" se pierden 2 puntos (la apuesta anterior).
-      // Si no había oferta previa (Envit directo o Falta directa), se pierde solo 1 punto.
-      const puntosPerdidos = (offer.level === 4 || offer.level === 'falta') ? 2 : 1;
-      
-      // IMPORTANTE: Pasamos 'puntosPerdidos' como tercer argumento
-      addSA(h, caller, puntosPerdidos); 
+      h.envit={state:'rejected', caller, responder:resp, offeredLevel:offer.level, acceptedBy:null};
       h.envitAvailable=false;
       
       const elMeuNom = pName(state, session.mySeat);
@@ -278,8 +269,8 @@ export async function timeoutTurn(){
     if(h.turn!==session.mySeat&&!alreadyPlayed(h,other(session.mySeat)))return false;
     if(h.pendingOffer?.to===session.mySeat){
       if(h.pendingOffer.kind==='envit'){
-        h.envit={state:'rejected',caller:h.pendingOffer.by,responder:session.mySeat,acceptedLevel:0,acceptedBy:null};
-        addSA(h,h.pendingOffer.by);h.envitAvailable=false;
+        h.envit={state:'rejected',caller:h.pendingOffer.by,responder:session.mySeat,offeredLevel:h.pendingOffer.level,acceptedBy:null};
+        h.envitAvailable=false;
         pushLog(state,'Temps. Envit rebutjat auto.');resumeOffer(state);return true;
       }
       if(h.pendingOffer.kind==='truc'){
