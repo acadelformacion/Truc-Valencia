@@ -2449,6 +2449,7 @@ h1 .hi {
   position: relative;
   overflow: hidden;
   background-color: #000 !important; /* Fons negre mentre carrega */
+  background-image: none !important; /* ELIMINA EL TAPETE VERDE */
 }
 
 #table.bg-bg3::before {
