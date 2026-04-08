@@ -881,7 +881,7 @@ h1 .hi {
 /* waitingOverlay: fondo-pantalla-inicial.webp con blur + panel sólido centrado */
 #waitingOverlay {
   background:
-    url("Media/Images/Others/fondo-pantalla-inicial.webp") center/cover
+    url("media/images/others/fondo-pantalla-inicial.webp") center/cover
       no-repeat,
     var(--bg);
 }
@@ -1186,7 +1186,7 @@ h1 .hi {
 /* ── LOBBY: Contenedor del fondo ── */
 #screenLobby {
   background:
-    url("Media/Images/Others/fondo-pantalla-inicial.webp") center/cover
+    url("media/images/others/fondo-pantalla-inicial.webp") center/cover
       no-repeat,
     var(--bg);
   overflow-y: auto;
@@ -2450,7 +2450,7 @@ h1 .hi {
 #table.bg-bg3 {
   background:
     linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
-    url("Media/Images/Others/fondo-mesa-juego-bar.webp") center/cover no-repeat !important;
+    url("media/images/others/fondo-mesa-juego-bar.webp") center/cover no-repeat !important;
 
   /* Esto ayuda a que el fondo no sea tan "chillón" */
   backdrop-filter: grayscale(30%) brightness(70%);
