@@ -1154,6 +1154,12 @@ function checkPresence() {
 // --- MAIN RENDER --------------------------------------------------------------
 function renderAll(room) {
   const state = room?.state || defaultState();
+
+  // Garantizar pantalla correcta siempre que estemos en sesión activa
+  if (session.roomCode) {
+    $("screenLobby").classList.add("hidden");
+    $("screenGame").classList.remove("hidden");
+  }
   resetInactivity();
   detectSounds(state);
   _lastState = state;
@@ -1489,7 +1495,7 @@ function getAvatarImg(idx) {
 }
 function renderAvatars(room) {
   const avs = room?.avatars || {};
-  const myIdx = Number(avs[K(session.mySeat)] ?? myAvatar);
+  const myIdx = myAvatar; // siempre usar variable local, nunca Firebase
   const rivIdx = Number(avs[K(other(session.mySeat))] ?? -1);
   _rivalAvatarIdx = rivIdx;
   const myEl = $("myAv"),
@@ -1512,6 +1518,13 @@ export function startSession(code) {
   session.roomCode = code;
   session.roomRef = ref(db, `rooms/${code}`);
 
+  // Sobreescribir nuestro avatar en Firebase al reconectar,
+  // por si hay datos de una sesión anterior
+  if (session.mySeat !== null) {
+    set(ref(db, `rooms/${code}/avatars/${K(session.mySeat)}`), myAvatar).catch(
+      () => {},
+    );
+  }
   if (unsubGame) unsubGame();
 
   let chatRivalActivado = false; // ← flag para suscribir solo una vez

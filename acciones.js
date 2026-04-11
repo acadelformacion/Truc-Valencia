@@ -308,13 +308,8 @@ export async function respondEnvit(choice) {
         acceptedBy: null,
       };
       h.envitAvailable = false;
-
-      // +1 punto para el que cantó el envit (caller), porque el rival no quiso
-      addSA(h, caller, 1);
-
       const nomCaller = pName(state, caller);
       pushLog(state, `No vull l'envit. +1 per a ${nomCaller}.`);
-
       resumeOffer(state);
       return true;
     }
