@@ -278,12 +278,18 @@ export async function respondEnvit(choice) {
     const caller = offer.by,
       resp = offer.to;
     if (choice === "vull") {
+      // Calcular ganador AHORA, antes de que se jueguen cartas
+      const v0 = Logica.bestEnvit(fromHObj(h.hands?.[K(0)]));
+      const v1 = Logica.bestEnvit(fromHObj(h.hands?.[K(1)]));
+      const envitWinner = v0 > v1 ? 0 : v1 > v0 ? 1 : state.mano;
+
       h.envit = {
         state: "accepted",
         caller,
         responder: resp,
         acceptedLevel: offer.level,
         acceptedBy: session.mySeat,
+        winner: envitWinner, // ← guardar ganador aquí
       };
       h.envitAvailable = false;
       pushLog(

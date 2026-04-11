@@ -940,8 +940,16 @@ function renderActions(state) {
     // Jugada consecutiva obligatoria: gané la baza anterior y debo liderar la siguiente
     // En este caso no se permite ninguna acción, solo tirar carta
     const tricksDone = (h.trickHistory || []).length;
+    const lastTrick = tricksDone > 0 ? h.trickHistory[tricksDone - 1] : null;
+    const winnerWasResponder =
+      lastTrick &&
+      lastTrick.winner !== 99 &&
+      lastTrick.winner !== lastTrick.lead;
     const isConsecutivePlay =
-      tricksDone > 0 && h.trickLead === session.mySeat && !played;
+      tricksDone > 0 &&
+      h.trickLead === session.mySeat &&
+      !played &&
+      winnerWasResponder;
 
     if (!isConsecutivePlay) {
       // CASO B normal: Es mi turno normal (Cantar)
@@ -982,9 +990,13 @@ function renderActions(state) {
     } else if (!myT && !played) {
       sm.textContent = `Torn de ${pName(state, h.turn)}`;
     } else if (!played && norm && !h.pendingOffer) {
-      const tricksDone = (h.trickHistory || []).length;
+      const lastTrick = tricksDone > 0 ? h.trickHistory[tricksDone - 1] : null;
+      const winnerWasResponder =
+        lastTrick &&
+        lastTrick.winner !== 99 &&
+        lastTrick.winner !== lastTrick.lead;
       const isConsecutivePlay =
-        tricksDone > 0 && h.trickLead === session.mySeat;
+        tricksDone > 0 && h.trickLead === session.mySeat && winnerWasResponder;
       sm.textContent = isConsecutivePlay
         ? "Tira la teua carta"
         : "El teu torn, tria carta o acció";
@@ -1484,7 +1496,7 @@ function renderAvatars(room) {
     rivEl = $("rivalAv");
 
   if (myEl) myEl.innerHTML = getAvatarImg(myIdx);
-  if (rivEl && rivIdx >= 0) rivEl.innerHTML = getAvatarImg(rivIdx);
+  if (rivEl) rivEl.innerHTML = getAvatarImg(rivIdx);
 
   // Gray out avatar options that the rival has chosen
   document.querySelectorAll(".av-opt").forEach((el, i) => {
@@ -2014,7 +2026,7 @@ export function initApp() {
     if (_actionInProgress) return;
     _actionInProgress = true;
     sndBtn();
-    showTableMsg("Truque!", true);
+    showTableMsg($("trucBtn").textContent + "!", true);
     try {
       await startOffer("truc");
     } finally {

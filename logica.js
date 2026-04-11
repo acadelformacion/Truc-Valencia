@@ -232,9 +232,9 @@ export function applyHandEnd(state, reason, foldedSeat) {
 
   // --- 1. RESOLVER ENVIT ---
   if (h.envit.state === "accepted") {
-    // Si el envite se aceptó, calculamos quién tiene más puntos de flor/envit
-    let ew = isFold ? winnerSeat : null;
+    let ew = isFold ? winnerSeat : (h.envit.winner ?? null); // ← usar winner guardado
     if (ew === null) {
+      // Fallback por si winner no está (partidas antiguas)
       const v0 = bestEnvit(fromHObj(h.hands?.[K(0)]));
       const v1 = bestEnvit(fromHObj(h.hands?.[K(1)]));
       ew = v0 > v1 ? 0 : v1 > v0 ? 1 : state.mano;
@@ -333,6 +333,7 @@ export function applyHandEnd(state, reason, foldedSeat) {
   state.mano = other(state.mano);
   state.turn = state.mano;
   state.status = "waiting";
+  state.lastAllTricks = h.allTricks || [];
   state.hand = null;
   state.handNumber = Number(state.handNumber || 10) + 1;
 }
