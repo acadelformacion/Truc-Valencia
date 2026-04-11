@@ -40,6 +40,7 @@ import {
   isSoundEnabled,
 } from "./config.js";
 let _actionInProgress = false;
+const $ = (id) => document.getElementById(id);
 // Sincronizar ui.locked con _actionInProgress para que se bloqueen juntos
 Object.defineProperty(ui, "locked", {
   get() {
@@ -51,101 +52,7 @@ Object.defineProperty(ui, "locked", {
     else _actionInProgress = false;
   },
 });
-// --- SISTEMA DE FRASES GLOBAL (Al principio del archivo) ---
-window.canChat = true;
-window.mySelectedPhrases = [];
 
-const radialPhrasesList = [
-  "⚔️ Ara sí que va de bo!",
-  "🏅Hui no fas ni un punt.",
-  "🌿 Açò és mel de romer.",
-  "💣 Va, que esta cau.",
-  "💰 Esta mà val or.",
-  "🖐️ Vine, vine, que t'espere.",
-  "🦁 A vore si tens valor.",
-  "😳 Això és tot el que portes?",
-  "🔝 De categoria.",
-  "😲 No me l’esperava.",
-  "🏟️ Ací encara hi ha partida.",
-  "🧱 Has vingut a fer bulto.",
-  "👵 Ma huela havera jugat millor!",
-  "🙊 No tens res i ho saps.",
-  "🥚 Ara apreta el botó si tens collons.",
-  "🐔 Tens por o què?",
-  "🍀 Xe, quina potra que tens!",
-  "👿 Redeu, quines cartes m’has donat!",
-  "📉 Hui no en guanye ni una!",
-  "🤡 Això és un 'vull i no puc'.",
-  "👣 Hui t’has alçat amb el peu esquerre.",
-  "🤥 Mal farol has soltat!",
-  "🧐 Això no t'ho creus ni tu!",
-  "🌙 Tira ja que es fa de nit!",
-];
-window.initChatPhrases = function () {
-  const menu = document.getElementById("myRadialMenu");
-  if (!menu) return;
-
-  window.mySelectedPhrases = [...radialPhrasesList]
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 8);
-
-  menu.innerHTML = "";
-  window.mySelectedPhrases.forEach((phrase, i) => {
-    const btn = document.createElement("div");
-    btn.className = "radial-option";
-    btn.textContent = phrase;
-
-    // ÁNGULO NUEVO: De -110 (arriba) a -10 (derecha media).
-    // Así evitamos que bajen hacia la barra inferior.
-    const angle = -110 + i * (100 / 7);
-    const radius = 95; // Más cerca del avatar (antes 130)
-
-    const x = Math.cos((angle * Math.PI) / 180) * radius;
-    const y = Math.sin((angle * Math.PI) / 180) * radius;
-
-    btn.style.left = x + "px";
-    btn.style.top = y + "px";
-
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      window.sendPhrase(phrase);
-    };
-    menu.appendChild(btn);
-  });
-};
-window.sendPhrase = function (text) {
-  if (!window.canChat || !session.roomCode) return;
-
-  // 1. Mostrar en MI pantalla
-  window.showBubble("myBubble", text);
-
-  // 2. ENVIAR A FIREBASE (Para que el rival lo reciba)
-  const miChatRef = ref(
-    db,
-    `rooms/${session.roomCode}/phrases/${session.mySeat}`,
-  );
-  set(miChatRef, { msg: text, t: Date.now() });
-
-  // 3. Cerrar menú y bloquear 10s (Tu lógica original)
-  const menu = document.getElementById("myRadialMenu");
-  if (menu) menu.classList.remove("active");
-
-  window.canChat = false;
-  const myAv = document.getElementById("myAv");
-  if (myAv) myAv.classList.add("av-frozen");
-
-  setTimeout(() => {
-    const b = document.getElementById("myBubble");
-    if (b) b.classList.add("hidden");
-  }, 3500);
-
-  setTimeout(() => {
-    window.canChat = true;
-    if (myAv) myAv.classList.remove("av-frozen");
-  }, 10000);
-};
-
-// No olvides pegar también la de activarChatRival justo debajo:
 window.activarChatRival = function () {
   if (!session.roomCode || session.mySeat === null) return;
 
@@ -301,8 +208,6 @@ let _prevHandsKey = ""; // tracks hand cards state
 let _prevTrickKey = ""; // tracks trick cards state
 let _prevHandKey = ""; // tracks which hand we're in
 let _lastCompletedTricks = null; // snapshot of trick cards to show during countdown
-window.initChatPhrases();
-const $ = (id) => document.getElementById(id);
 const uid = () =>
   Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const sanitize = (s) =>
@@ -1621,6 +1526,7 @@ export function startSession(code) {
   });
 
   initChat(code);
+  initPhraseListener(code);
 
   if (unsubMsg) unsubMsg();
   let lastMsgAt = 0;
@@ -1881,6 +1787,121 @@ async function limpiarSalasAntiguas() {
     await Promise.all(borrados);
   } catch (e) {}
 }
+// ── FRASES DE CHAT ────────────────────────────────────────────────────────
+const FRASES = [
+  "⚔️ Ara sí que va de bo!",
+  "🏅 Hui no fas ni un punt.",
+  "🌿 Açò és mel de romer.",
+  "💣 Va, que esta cau.",
+  "💰 Esta mà val or.",
+  "🖐️ Vine, vine, que t'espere.",
+  "🦁 A vore si tens valor.",
+  "😳 Això és tot el que portes?",
+  "🔝 De categoria.",
+  "😲 No me l'esperava.",
+  "🏟️ Ací encara hi ha partida.",
+  "🧱 Has vingut a fer bulto.",
+  "👵 Ma iaia haguera jugat millor!",
+  "🙊 No tens res i ho saps.",
+  "🐔 Tens por o què?",
+  "🍀 Xe, quina potra que tens!",
+  "👿 Redeu, quines cartes!",
+  "📉 Hui no en guanye ni una!",
+  "🤡 Açò és un vull i no puc.",
+  "🧐 Açò no t'ho creus ni tu!",
+  "🌙 Tira ja que es fa de nit!",
+  "🤥 Mal farol has soltat!",
+];
+
+let _canChat = true;
+let _unsubPhrases = null;
+
+function buildPhraseMenu() {
+  const menu = $("myPhraseMenu");
+  if (!menu) return;
+  menu.innerHTML = "";
+  // 8 frases aleatorias cada vez
+  const shuffled = [...FRASES].sort(() => 0.5 - Math.random()).slice(0, 8);
+  shuffled.forEach((frase) => {
+    const item = document.createElement("div");
+    item.className = "phrase-item";
+    item.textContent = frase;
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sendPhrase(frase);
+    });
+    // Soporte táctil explícito
+    item.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sendPhrase(frase);
+    });
+    menu.appendChild(item);
+  });
+}
+
+function togglePhraseMenu() {
+  if (!_canChat) return;
+  const menu = $("myPhraseMenu");
+  if (!menu) return;
+  if (menu.classList.contains("hidden")) {
+    buildPhraseMenu();
+    menu.classList.remove("hidden");
+  } else {
+    menu.classList.add("hidden");
+  }
+}
+
+function showBubble(bubbleId, text) {
+  const b = $(bubbleId);
+  if (!b) return;
+  b.textContent = text;
+  b.classList.remove("hidden");
+  // Reinicia la animación
+  b.style.animation = "none";
+  void b.offsetWidth;
+  b.style.animation = "";
+  clearTimeout(b._hideTimer);
+  b._hideTimer = setTimeout(() => b.classList.add("hidden"), 4000);
+}
+
+function sendPhrase(text) {
+  if (!_canChat || !session.roomCode) return;
+
+  // Cierra el menú
+  $("myPhraseMenu")?.classList.add("hidden");
+
+  // Muestra en mi pantalla
+  showBubble("myBubble", text);
+
+  // Envía a Firebase para que lo vea el rival
+  set(ref(db, `rooms/${session.roomCode}/phrase`), {
+    seat: session.mySeat,
+    msg: text,
+    t: Date.now(),
+  }).catch(() => {});
+
+  // Bloquea 8 segundos
+  _canChat = false;
+  $("myAvatarContainer")?.classList.add("av-frozen");
+  setTimeout(() => {
+    _canChat = true;
+    $("myAvatarContainer")?.classList.remove("av-frozen");
+  }, 8000);
+}
+
+function initPhraseListener(code) {
+  if (_unsubPhrases) _unsubPhrases();
+  _unsubPhrases = onValue(ref(db, `rooms/${code}/phrase`), (snap) => {
+    const data = snap.val();
+    if (!data || !data.msg) return;
+    // Solo mostrar si es del rival y es reciente (menos de 6 segundos)
+    if (data.seat === session.mySeat) return;
+    if (Date.now() - data.t > 6000) return;
+    showBubble("rivalBubble", data.msg);
+  });
+}
+
 // --- Boot: initApp ------------------------------------------------------------
 export function initApp() {
   configureActions({ renderAll });
@@ -1890,6 +1911,19 @@ export function initApp() {
   $("leaveBtn").addEventListener("click", leaveRoom);
   $("goLeaveBtn").addEventListener("click", leaveRoom);
   $("goRematchBtn")?.addEventListener("click", requestRematch);
+  // Menú de frases
+  $("myAvatarContainer")?.addEventListener("click", togglePhraseMenu);
+  $("myAvatarContainer")?.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    togglePhraseMenu();
+  });
+
+  // Cerrar al hacer click fuera
+  document.addEventListener("click", (e) => {
+    if (!$("myAvatarContainer")?.contains(e.target)) {
+      $("myPhraseMenu")?.classList.add("hidden");
+    }
+  });
 
   $("guestReadyBtn")?.addEventListener("click", async () => {
     sndBtn();
@@ -2061,30 +2095,3 @@ export function initApp() {
   })();
   loadRoomList();
 }
-
-// ── TOGGLE MENÚ RADIAL ──────────────────────────────
-window.toggleRadialMenu = function () {
-  if (!window.canChat) return; // Si está bloqueado, no abrir
-
-  const menu = document.getElementById("myRadialMenu");
-  if (!menu) return;
-
-  const isOpen = menu.classList.contains("active");
-
-  if (isOpen) {
-    menu.classList.remove("active");
-  } else {
-    window.initChatPhrases(); // Regenera frases aleatorias cada vez
-    menu.classList.add("active");
-  }
-};
-
-// Cerrar el menú si se hace click fuera
-document.addEventListener("click", function (e) {
-  const container = document.getElementById("myAvatarContainer");
-  const menu = document.getElementById("myRadialMenu");
-  if (!menu || !container) return;
-  if (!container.contains(e.target)) {
-    menu.classList.remove("active");
-  }
-});

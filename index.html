@@ -86,14 +86,13 @@ PANTALLA 2 · MESA DE JUEGO
     <div id="rivalZone">
       <div class="rival-header">
         <div class="player-avatar-wrap">
-          <div id="rivalBubble" class="speech-bubble hidden"></div>
-          
+          <div id="rivalBubble" class="speech-bubble rival-bubble hidden"></div>
           <div id="rivalAv" class="player-av-sm"></div>
           <svg class="av-ring" id="rivalRing" viewBox="0 0 56 56">
-              <circle class="timer-ring-bg" cx="28" cy="28" r="25"/>
+            <circle class="timer-ring-bg" cx="28" cy="28" r="25"/>
             <circle id="rivalTimerArc" class="timer-ring-arc" cx="28" cy="28" r="25"/>
           </svg>
-      </div>
+        </div>
         <div id="rivalName" class="player-name">—</div>
       </div>
       <div id="rivalCards" class="rival-cards" data-count="0"></div>
@@ -107,12 +106,9 @@ PANTALLA 2 · MESA DE JUEGO
     <div id="myZone">
       <div id="myCards" class="my-cards"></div>
       <div class="my-zone-header">
-        <div class="player-avatar-wrap" id="myAvatarContainer" onclick="toggleRadialMenu()">
-          
+        <div class="player-avatar-wrap" id="myAvatarContainer">
           <div id="myBubble" class="speech-bubble hidden"></div>
-          
-          <div id="myRadialMenu" class="radial-menu"></div>
-  
+          <div id="myPhraseMenu" class="phrase-menu hidden"></div>
           <div id="myAv" class="player-av-sm"></div>
           <svg class="av-ring" id="myRing" viewBox="0 0 56 56">
             <circle class="timer-ring-bg" cx="28" cy="28" r="25"/>
