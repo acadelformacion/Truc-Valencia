@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>El Truc de la Terreta</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script type="module" src="game.js"></script>
 </head>
 <body>
@@ -13,45 +14,86 @@
 PANTALLA 1 · LOBBY
 ═══════════════════════════════════════ -->
 <div id="screenLobby" class="screen">
-  <div class="lobby-wrap">
-    <div class="lobby-header">
-      <img src="Media/Images/Others/portada.png" alt="Truc Valenciano" class="lobby-portada" />
-      <h1>El Truc de <span class="hi">la Terreta</span></h1>
-      <p class="lobby-sub">1 vs 1 · En temps real</p>
+  <div id="pantalla-inicio" class="auth-wrap">
+    <div class="auth-start-top">
+      <img
+        class="auth-logo"
+        src="Media/Images/Others/portada.png"
+        alt="El Truc de la Terreta"
+        decoding="async"
+      />
+      <div class="auth-head">
+        <h1 class="auth-title">El Truc de la Terreta</h1>
+        <h2 class="auth-subtitle">Juga al truc original valencià! - Gratis</h2>
+      </div>
     </div>
-    <div class="lobby-card">
-      <div class="lfield">
-        <label for="nameInput">Nom</label>
-        <input id="nameInput" type="text" placeholder="Ej. Joan" autocomplete="off" />
+    <div class="auth-actions">
+      <p id="authErrMsg" class="auth-err-msg hidden" role="alert"></p>
+      <div
+        id="g_id_onload"
+        data-client_id="922530958932-hb10br4fvf87suf41vkjrdbuijdv6oor.apps.googleusercontent.com"
+        data-auto_prompt="false"
+      ></div>
+      <div class="auth-google-wrap">
+        <div
+          class="g_id_signin"
+          data-type="standard"
+          data-shape="pill"
+          data-theme="outline"
+          data-text="signin_with"
+          data-size="large"
+          data-width="340"
+          data-logo_alignment="left"
+        ></div>
       </div>
-      <div class="lfield">
-        <label for="roomInput">Codi de sala</label>
-        <input id="roomInput" type="text" placeholder="Ej. 1234" autocomplete="off" maxlength="8" />
+      <button id="btn-invitado" type="button" class="auth-btn-guest">
+        Entrar com a convidat
+      </button>
+    </div>
+    <p class="version auth-version-footer">Versió Beta 1.0</p>
+  </div>
+
+  <div id="pantalla-lobby" class="lobby-wrap lobby-hub hidden">
+    <div id="user-profile" class="user-profile">
+      <div class="user-profile-left">
+        <img
+          id="user-profile-photo"
+          class="user-profile-photo"
+          alt=""
+          width="48"
+          height="48"
+          decoding="async"
+        />
+        <div class="user-profile-meta">
+          <span id="user-profile-name" class="user-profile-name">—</span>
+          <span class="user-profile-wins">Victòries: <strong id="user-wins-count">0</strong></span>
+        </div>
       </div>
-      <div class="lobby-btns">
-        <button id="createBtn" class="lbtn lbtn-primary">Crear sala</button>
-        <button id="joinBtn"   class="lbtn lbtn-secondary">Unir-se</button>
+      <button type="button" id="lobbyEixirBtn" class="lobby-eixir-btn">Eixir</button>
+    </div>
+
+    <div class="lobby-hub-main">
+      <div class="lobby-rooms">
+        <div class="rl-title">Sales obertes</div>
+        <div id="roomList" class="room-list"></div>
       </div>
       <div id="lobbyMsg" class="lobby-msg"></div>
     </div>
 
-    <!-- Available rooms -->
-    <div class="lobby-rooms">
-      <div class="rl-title">Sales obertes</div>
-      <div id="roomList" class="room-list"></div>
-    
-      <div id="quickJoinModal" class="qj-modal hidden">
-        <div class="qj-content">
-            <h3>Entrar a <span id="qj-room-display"></span></h3>
-            <p>Introdueix el teu nom:</p>
-            <input type="text" id="qj-name-input" placeholder="Nick" maxlength="12">
-            <div class="qj-buttons">
-                <button id="qj-cancel" class="btn-qj-cancel">Eixir</button>
-                <button id="qj-confirm" class="btn-qj-confirm">Jugar!</button>
-            </div>
-        </div>
-      </div>
+    <div class="lobby-hub-footer">
+      <button type="button" id="btn-crear-publica" class="lbtn lbtn-primary lobby-hub-btn">
+        Crear Sala Pública
+      </button>
+      <button type="button" id="btn-crear-privada" class="lbtn lbtn-secondary lobby-hub-btn">
+        Crear Sala Privada
+      </button>
+      <button type="button" id="btn-unirse-codigo" class="lbtn lbtn-secondary lobby-hub-btn lobby-hub-btn-outline">
+        Unir-se amb Codi
+      </button>
     </div>
+
+    <input type="hidden" id="nameInput" value="" autocomplete="off" />
+    <input type="hidden" id="roomInput" value="" autocomplete="off" />
   </div>
 </div>
 
@@ -230,7 +272,7 @@ PANTALLA 2 · MESA DE JUEGO
       <div id="guestWaitMsg" class="waiting-note hidden" style="margin-top:10px; font-weight:bold;"></div>
       <div id="waitingNote" class="waiting-note"></div>
   
-      <button id="backToMainBtn" onclick="location.reload()" class="btn-volver">
+      <button type="button" id="backToMainBtn" class="btn-volver">
         ⏪ Tornar a l'inici
       </button>
     </div>

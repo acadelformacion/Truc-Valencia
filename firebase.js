@@ -11,6 +11,14 @@ import {
   runTransaction,
   onDisconnect,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInAnonymously,
+  onAuthStateChanged,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 export const firebaseConfig = {
   apiKey: "AIzaSyBHQ3hSWToVKzADI9eUlCNONbi_lN_TTAI",
@@ -23,8 +31,9 @@ export const firebaseConfig = {
   appId: "1:922530958932:web:84fe1d9386f5ea2d6f67c1",
 };
 
-initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 export const db = getDatabase();
+export const auth = getAuth(app);
 
 /** Referencias mutables compartidas entre módulos (misma referencia de objeto) */
 export const session = {
@@ -57,3 +66,10 @@ export async function mutate(fn, getDefaultState) {
 }
 
 export { ref, get, set, push, remove, onValue, runTransaction, onDisconnect };
+export {
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInAnonymously,
+  onAuthStateChanged,
+  signOut,
+};

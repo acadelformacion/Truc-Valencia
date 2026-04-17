@@ -278,9 +278,20 @@ export async function respondEnvit(choice) {
     const caller = offer.by,
       resp = offer.to;
     if (choice === "vull") {
-      // Calcular ganador AHORA, antes de que se jueguen cartas
-      const v0 = Logica.bestEnvit(fromHObj(h.hands?.[K(0)]));
-      const v1 = Logica.bestEnvit(fromHObj(h.hands?.[K(1)]));
+      // Calcular ganador AHORA, antes de que se jueguen más cartas.
+      // IMPORTANT: si un jugador ya había jugado una carta en la 1a baza antes
+      // de cantarse el envit, esa carta está en h.played (no en h.hands).
+      // Hay que incluirla para evaluar la mano completa correctamente.
+      const played0 = getPlayed(h, 0);
+      const played1 = getPlayed(h, 1);
+      const fullHand0 = played0
+        ? [...fromHObj(h.hands?.[K(0)]), played0]
+        : fromHObj(h.hands?.[K(0)]);
+      const fullHand1 = played1
+        ? [...fromHObj(h.hands?.[K(1)]), played1]
+        : fromHObj(h.hands?.[K(1)]);
+      const v0 = Logica.bestEnvit(fullHand0);
+      const v1 = Logica.bestEnvit(fullHand1);
       const envitWinner = v0 > v1 ? 0 : v1 > v0 ? 1 : state.mano;
 
       h.envit = {
@@ -401,6 +412,7 @@ export async function respondTruc(choice) {
 
 export async function timeoutTurn() {
   await mutate((state) => {
+    if (session.mySeat !== 0 && session.mySeat !== 1) return false;
     const h = state.hand;
     if (!h || state.status !== "playing" || h.status !== "in_progress")
       return false;

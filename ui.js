@@ -7,6 +7,7 @@
 //   * Contadores: almacenados +10 para que nunca sean 0.
 import {
   db,
+  auth,
   session,
   ref,
   get,
@@ -16,6 +17,10 @@ import {
   onValue,
   runTransaction,
   onDisconnect,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInAnonymously,
+  signOut,
 } from "./firebase.js";
 import * as Logica from "./logica.js";
 import {
@@ -40,6 +45,8 @@ import {
   isSoundEnabled,
 } from "./config.js";
 let _actionInProgress = false;
+let _authReady = false;
+let _gsiBootDone = false;
 const $ = (id) => document.getElementById(id);
 // Sincronizar ui.locked con _actionInProgress para que se bloqueen juntos
 Object.defineProperty(ui, "locked", {
@@ -130,6 +137,7 @@ const alreadyPlayed = (h, seat) => getPlayed(h, seat) !== null;
 const bothPlayed = (h) => alreadyPlayed(h, 0) && alreadyPlayed(h, 1);
 
 const LS = { room: "truc_room", seat: "truc_seat", name: "truc_name" };
+const ANON_NICK_STORAGE_PREFIX = "truc_anon_nick_";
 const INACT_MS = 60 * 60 * 1000;
 const TURN_SECS = 30;
 const OFFSET = 10; // scores/trickWins stored +10
@@ -193,10 +201,13 @@ const sndLose = () => {
 
 // --- Session ------------------------------------------------------------------
 let unsubGame = null,
+  unsubStateStatus = null,
   unsubChat = null;
 let inactTimer = null,
   betweenTimer = null,
-  turnTimer = null;
+  turnTimer = null,
+  /** Arm del torn: cal cancel·lar-lo junt amb l'interval (si no, es pileguen intervals). */
+  turnTimerArm = null;
 let prevTurnKey = "",
   prevEnvSt = "none",
   prevTrucSt = "none";
@@ -265,8 +276,10 @@ function loadLS() {
   const n = localStorage.getItem(LS.name),
     r = localStorage.getItem(LS.room),
     s = localStorage.getItem(LS.seat);
-  if (n) $("nameInput").value = n;
-  if (r) $("roomInput").value = r;
+  const ni = $("nameInput"),
+    ri = $("roomInput");
+  if (n && ni) ni.value = n;
+  if (r && ri) ri.value = r;
   if (s != null) session.mySeat = Number(s);
 }
 function saveLS(n, c, s) {
@@ -287,6 +300,123 @@ function resetInactivity() {
   }, INACT_MS);
 }
 
+/** Callback global per al SDK de Google (GSI); el token JWT va a Firebase Auth. */
+export async function handleCredentialResponse(response) {
+  clearAuthErr();
+  try {
+    const idToken = response?.credential;
+    if (!idToken) return;
+    const credential = GoogleAuthProvider.credential(idToken);
+    await signInWithCredential(auth, credential);
+  } catch (err) {
+    console.error("Error login Google:", err);
+    const code = err?.code || "";
+    const hint =
+      location.protocol === "file:"
+        ? " Obre la pàgina amb un servidor local (http://localhost), Firebase Auth no funciona amb file://."
+        : "";
+    showAuthErr(
+      `No s'ha pogut iniciar amb Google (${code || err?.message || "error"}).${hint}`,
+    );
+    setLobbyMsg("No s'ha pogut iniciar amb Google.", "err");
+  }
+}
+
+function readGoogleClientId() {
+  const onload = document.getElementById("g_id_onload");
+  return (
+    onload?.dataset?.client_id ||
+    "922530958932-hb10br4fvf87suf41vkjrdbuijdv6oor.apps.googleusercontent.com"
+  );
+}
+
+function initGoogleSignInButton() {
+  if (_gsiBootDone) return true;
+  const gsi = window.google?.accounts?.id;
+  if (!gsi) return false;
+  try {
+    const clientId = readGoogleClientId();
+    gsi.initialize({
+      client_id: clientId,
+      callback: handleCredentialResponse,
+      auto_select: false,
+    });
+    const slot = document.getElementById("g_id_signin");
+    if (slot) {
+      slot.innerHTML = "";
+      gsi.renderButton(slot, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+      });
+    }
+    _gsiBootDone = true;
+    return true;
+  } catch (e) {
+    console.error("initGoogleSignInButton:", e);
+    return false;
+  }
+}
+
+function scheduleGoogleSignInInit() {
+  if (initGoogleSignInButton()) return;
+  let tries = 0;
+  const id = setInterval(() => {
+    tries++;
+    if (initGoogleSignInButton() || tries > 50) clearInterval(id);
+  }, 100);
+  window.addEventListener("load", () => {
+    initGoogleSignInButton();
+  });
+}
+
+function initAuthFlow() {
+  if (_authReady) return;
+  _authReady = true;
+
+  window.handleCredentialResponse = handleCredentialResponse;
+  scheduleGoogleSignInInit();
+}
+
+const WINS_LS_PREFIX = "truc_wins_";
+
+function bumpStoredWinsIfWonGame() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  const k = WINS_LS_PREFIX + uid;
+  const n = Number(localStorage.getItem(k) || 0) + 1;
+  localStorage.setItem(k, String(n));
+  const el = $("user-wins-count");
+  if (el) el.textContent = String(n);
+}
+
+/** Reconnexió després d’auth (cridat des de `game.js`). */
+export async function tryReconnectFromLocalStorage() {
+  const _sr = localStorage.getItem(LS.room);
+  if (!_sr) return;
+  const _code = sanitize(_sr);
+  try {
+    const snap = await get(ref(db, `rooms/${_code}`));
+    if (snap.exists() && snap.val()?.state) {
+      if (session.roomCode) return;
+      session.roomCode = _code;
+      if ($("roomInput")) $("roomInput").value = _code;
+      const _ss = localStorage.getItem(LS.seat);
+      if (_ss != null) session.mySeat = Number(_ss);
+      startSession(_code);
+    } else {
+      localStorage.removeItem(LS.room);
+      localStorage.removeItem(LS.seat);
+    }
+  } catch (e) {
+    localStorage.removeItem(LS.room);
+    localStorage.removeItem(LS.seat);
+  }
+}
+
 // --- Timers -------------------------------------------------------------------
 // -- Circular ring helpers -----------------------------------------------------
 const RING_C = 2 * Math.PI * 25; // r=25 for avatar rings // circumference for r=15
@@ -300,6 +430,10 @@ function setRing(arcId, ringId, pct, phase) {
 }
 
 function stopTurnTimer() {
+  if (turnTimerArm != null) {
+    clearTimeout(turnTimerArm);
+    turnTimerArm = null;
+  }
   clearInterval(turnTimer);
   turnTimer = null;
   const f = $("turnTimerFill");
@@ -330,7 +464,8 @@ function startTurnTimer(isMyTurn, state) {
     setRing("myTimerArc", "myTimerRing", 0, "my");
     setRing("rivalTimerArc", "rivalTimerRing", 100, "rival");
   }
-  setTimeout(() => {
+  turnTimerArm = setTimeout(() => {
+    turnTimerArm = null;
     if (f && isMyTurn) f.style.transition = "width 1s linear";
     turnTimer = setInterval(() => {
       rem--;
@@ -1131,6 +1266,8 @@ function detectSounds(state) {
 
 // --- Presence / disconnect ----------------------------------------------------
 let _absenceTimer = null;
+/** Evita programar diversos timeouts d’overlay / comptar victòries duplicades. */
+let _gameOverAnimScheduledFor = "";
 function checkPresence() {
   if (!session.roomCode || session.mySeat === null) return;
   get(ref(db, `rooms/${session.roomCode}/presence/${K(other(session.mySeat))}`))
@@ -1154,6 +1291,10 @@ function checkPresence() {
 // --- MAIN RENDER --------------------------------------------------------------
 function renderAll(room) {
   const state = room?.state || defaultState();
+  // Fora del lobby pre-partida: amagar l'overlay ja, per si més endavant falla algun sub-render
+  const preGameLobby =
+    state.status === "waiting" && real(state.handNumber || OFFSET) === 0;
+  if (!preGameLobby) $("waitingOverlay")?.classList.add("hidden");
 
   // Garantizar pantalla correcta siempre que estemos en sesión activa
   if (session.roomCode) {
@@ -1216,8 +1357,9 @@ function renderAll(room) {
     stopTurnTimer();
     $("waitingOverlay").classList.add("hidden");
     const wasHidden = $("gameOverOverlay").classList.contains("hidden");
-    if (wasHidden) {
-      // Delay 3s so players see the winning card first
+    const animKey = `${session.roomCode}|${state.winner}|${getScore(state, session.mySeat)}-${getScore(state, other(session.mySeat))}|${state.logs?.[0]?.at ?? ""}`;
+    if (wasHidden && animKey !== _gameOverAnimScheduledFor) {
+      _gameOverAnimScheduledFor = animKey;
       const iWon = state.winner === session.mySeat;
       setTimeout(() => {
         $("gameOverOverlay").classList.remove("hidden");
@@ -1228,6 +1370,7 @@ function renderAll(room) {
         if (iWon) {
           sndWin();
           startConfetti(true);
+          bumpStoredWinsIfWonGame();
         } else {
           sndLose();
           startConfetti(false);
@@ -1242,6 +1385,7 @@ function renderAll(room) {
       $("gameOverOverlay").classList.add("hidden");
       stopConfetti();
     }
+    _gameOverAnimScheduledFor = "";
   } // end else
   if (state.status === "waiting") {
     stopTurnTimer();
@@ -1525,13 +1669,36 @@ export function startSession(code) {
       () => {},
     );
   }
+  if (unsubStateStatus) {
+    unsubStateStatus();
+    unsubStateStatus = null;
+  }
   if (unsubGame) unsubGame();
 
   let chatRivalActivado = false; // ← flag para suscribir solo una vez
 
   unsubGame = onValue(session.roomRef, (snap) => {
     const data = snap.val();
-    if (!data) return;
+    if (!data) {
+      if (!session.roomCode) return;
+      detachRoomListeners();
+      stopBetween();
+      stopTurnTimer();
+      clearTimeout(inactTimer);
+      inactTimer = null;
+      session.roomRef = null;
+      session.roomCode = null;
+      session.mySeat = null;
+      localStorage.removeItem(LS.room);
+      localStorage.removeItem(LS.seat);
+      $("waitingOverlay")?.classList.add("hidden");
+      $("gameOverOverlay")?.classList.add("hidden");
+      stopConfetti();
+      $("screenLobby")?.classList.remove("hidden");
+      $("screenGame")?.classList.add("hidden");
+      setLobbyMsg("La sala s'ha tancat.", "err");
+      return;
+    }
 
     if (!data.state) {
       $("screenLobby").classList.remove("hidden");
@@ -1549,6 +1716,23 @@ export function startSession(code) {
 
     renderAll(data);
   });
+
+  // Refuerç: quan l'estat passa a "playing", alguns clients no rebien el snap de la sala a temps;
+  // aquest camí curt força un render amb la sala completa.
+  unsubStateStatus = onValue(
+    ref(db, `rooms/${code}/state/status`),
+    (statusSnap) => {
+      if (session.roomCode !== code) return;
+      if (statusSnap.val() !== "playing") return;
+      $("waitingOverlay")?.classList.add("hidden");
+      get(session.roomRef)
+        .then((s) => {
+          if (!s.exists() || session.roomCode !== code) return;
+          renderAll(s.val());
+        })
+        .catch(() => {});
+    },
+  );
 
   initChat(code);
   initPhraseListener(code);
@@ -1575,14 +1759,32 @@ export function startSession(code) {
 }
 function setLobbyMsg(txt, cls) {
   const el = $("lobbyMsg");
+  if (!el) return;
   el.textContent = txt;
   el.className = "lobby-msg" + (cls ? " " + cls : "");
 }
 
+function showAuthErr(txt) {
+  const el = document.getElementById("authErrMsg");
+  if (!el) {
+    console.error(txt);
+    return;
+  }
+  el.textContent = txt;
+  el.classList.remove("hidden");
+}
+
+function clearAuthErr() {
+  const el = document.getElementById("authErrMsg");
+  if (!el) return;
+  el.textContent = "";
+  el.classList.add("hidden");
+}
+
 async function createRoom() {
-  const name = normName($("nameInput").value);
+  const name = normName($("nameInput")?.value);
   const code =
-    sanitize($("roomInput").value) ||
+    sanitize($("roomInput")?.value) ||
     Math.random().toString(36).slice(2, 6).toUpperCase();
   const r = ref(db, `rooms/${code}`);
   const ex = await get(r);
@@ -1615,15 +1817,15 @@ async function createRoom() {
   });
   session.mySeat = 0;
   saveLS(name, code, 0);
-  $("roomInput").value = code;
+  if ($("roomInput")) $("roomInput").value = code;
   set(ref(db, `rooms/${code}/avatars/${K(0)}`), myAvatar).catch(() => {});
   setLobbyMsg(`Sala ${code} creada.`, "good");
   startSession(code);
 }
 
 async function joinRoom() {
-  const name = normName($("nameInput").value);
-  const code = sanitize($("roomInput").value);
+  const name = normName($("nameInput")?.value);
+  const code = sanitize($("roomInput")?.value);
   if (!code) {
     setLobbyMsg("Escriu un codi de sala.", "err");
     return;
@@ -1681,9 +1883,18 @@ async function leaveRoom() {
       const data = snap.val();
       const estado = data?.state?.status;
       const otroJugador = data?.state?.players?.[K(other(session.mySeat))];
+      const hn = data?.state?.handNumber;
+      const waitingPreLobby =
+        estado === "waiting" && real(hn ?? OFFSET) === 0;
+      const hostTancaSalaEspera =
+        waitingPreLobby && session.mySeat === 0;
 
-      // Borrar sala entera si acabó o si el rival ya no está
-      if (estado === "game_over" || !otroJugador) {
+      // Borrar sala entera si acabó, si el rival ja no és, o si el creador eix de la sala d'espera
+      if (
+        estado === "game_over" ||
+        !otroJugador ||
+        hostTancaSalaEspera
+      ) {
         await remove(session.roomRef);
       } else {
         // Solo te vas tú, el rival sigue — quita tu jugador
@@ -1736,65 +1947,15 @@ function loadRoomList() {
       const row = document.createElement("div");
       row.className = "rl-row";
       row.innerHTML = `<div class="rl-info"><span class="rl-code">${r.code}</span><span class="rl-host">${r.host}</span></div><button class="lbtn lbtn-primary rl-join">Entrar</button>`;
-      row
-        .querySelector(".rl-join")
-        .addEventListener("click", () => showQuickJoin(r.code, r.host));
+      row.querySelector(".rl-join").addEventListener("click", () => {
+        const ri = $("roomInput");
+        if (ri) ri.value = r.code;
+        joinRoom();
+      });
       listEl.appendChild(row);
     });
   });
 }
-/**
- * Gestiona el acceso rápido desde la lista de salas abiertas.
- * @param {string} code - El código de la sala (ej: 'ABCDE')
- * @param {string} host - El nombre del creador (ej: 'Joan')
- */
-function showQuickJoin(code, host) {
-  const modal = document.getElementById("quickJoinModal");
-  const qjNameInput = document.getElementById("qj-name-input");
-  const roomDisplay = document.getElementById("qj-room-display");
-
-  // 1. Mostrar modal y limpiar nombre
-  roomDisplay.innerText = code;
-  modal.classList.remove("hidden");
-  qjNameInput.value = ""; // Limpiamos por si acaso
-  qjNameInput.focus();
-
-  // 2. Al hacer clic en Jugar!
-  document.getElementById("qj-confirm").onclick = () => {
-    const nick = qjNameInput.value.trim();
-
-    if (nick.length < 2) {
-      alert("Escriu un nom vàlid!");
-      return;
-    }
-
-    // RELLENAMOS TUS INPUTS REALES (del HTML que me has pasado)
-    const realNameInput = document.getElementById("nameInput");
-    const realRoomInput = document.getElementById("roomInput");
-    const realJoinBtn = document.getElementById("joinBtn");
-
-    if (realNameInput && realRoomInput && realJoinBtn) {
-      realNameInput.value = nick;
-      realRoomInput.value = code;
-
-      // Ocultamos el modal
-      modal.classList.add("hidden");
-
-      // ¡PULSAMOS EL BOTÓN DE UNIRSE!
-      realJoinBtn.click();
-    } else {
-      console.error("No s'han trobat els IDs nameInput, roomInput o joinBtn");
-    }
-  };
-
-  // 3. Al hacer clic en Eixir
-  document.getElementById("qj-cancel").onclick = () => {
-    modal.classList.add("hidden");
-  };
-}
-
-// Muy importante para que el botón de la lista lo vea:
-window.showQuickJoin = showQuickJoin;
 async function limpiarSalasAntiguas() {
   try {
     const snap = await get(ref(db, "rooms"));
@@ -1927,14 +2088,102 @@ function initPhraseListener(code) {
   });
 }
 
+function detachRoomListeners() {
+  if (unsubGame) {
+    unsubGame();
+    unsubGame = null;
+  }
+  if (unsubStateStatus) {
+    unsubStateStatus();
+    unsubStateStatus = null;
+  }
+  if (unsubChat) {
+    unsubChat();
+    unsubChat = null;
+  }
+  if (unsubMsg) {
+    unsubMsg();
+    unsubMsg = null;
+  }
+  if (_unsubPhrases) {
+    _unsubPhrases();
+    _unsubPhrases = null;
+  }
+}
+
 // --- Boot: initApp ------------------------------------------------------------
 export function initApp() {
   configureActions({ renderAll });
+  initAuthFlow();
   limpiarSalasAntiguas(); // sin await, que corra en segundo plano
-  $("createBtn").addEventListener("click", createRoom);
-  $("joinBtn").addEventListener("click", joinRoom);
+  $("btn-crear-publica")?.addEventListener("click", () => {
+    if ($("roomInput")) $("roomInput").value = "";
+    createRoom();
+  });
+  $("btn-crear-privada")?.addEventListener("click", () => {
+    const raw = window.prompt(
+      "Introdueix el codi de la sala privada (4–8 caràcters alfanumèrics):",
+      "",
+    );
+    if (raw == null) return;
+    const code = sanitize(raw);
+    if (code.length < 2) {
+      setLobbyMsg("Codi massa curt.", "err");
+      return;
+    }
+    if ($("roomInput")) $("roomInput").value = code;
+    createRoom();
+  });
+  $("btn-unirse-codigo")?.addEventListener("click", () => {
+    const raw = window.prompt("Introdueix el codi de la sala:", "");
+    if (raw == null) return;
+    const code = sanitize(raw);
+    if (!code) {
+      setLobbyMsg("Escriu un codi de sala.", "err");
+      return;
+    }
+    if ($("roomInput")) $("roomInput").value = code;
+    joinRoom();
+  });
+  $("btn-invitado")?.addEventListener("click", async () => {
+    clearAuthErr();
+    try {
+      await signInAnonymously(auth);
+    } catch (err) {
+      console.error("Error login convidat:", err);
+      const code = err?.code || "";
+      const hint =
+        location.protocol === "file:"
+          ? " Obre amb http://localhost (no file://)."
+          : "";
+      showAuthErr(
+        `No s'ha pogut entrar com a convidat (${code || err?.message || "error"}).${hint}`,
+      );
+      setLobbyMsg("No s'ha pogut entrar com a convidat.", "err");
+    }
+  });
+  $("lobbyEixirBtn")?.addEventListener("click", async () => {
+    const u = auth.currentUser;
+    if (u?.isAnonymous && u.uid) {
+      sessionStorage.removeItem(ANON_NICK_STORAGE_PREFIX + u.uid);
+    }
+    localStorage.removeItem(LS.room);
+    localStorage.removeItem(LS.seat);
+    session.roomCode = null;
+    session.roomRef = null;
+    session.mySeat = null;
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("signOut lobby:", err);
+    }
+  });
   $("leaveBtn").addEventListener("click", leaveRoom);
   $("goLeaveBtn").addEventListener("click", leaveRoom);
+  $("backToMainBtn")?.addEventListener("click", async () => {
+    sndBtn();
+    await leaveRoom();
+  });
   $("goRematchBtn")?.addEventListener("click", requestRematch);
   // Menú de frases
   $("myAvatarContainer")?.addEventListener("click", togglePhraseMenu);
@@ -2099,25 +2348,5 @@ export function initApp() {
   });
   pickAvatar(myAvatar);
   loadLS();
-  (async () => {
-    const _sr = localStorage.getItem(LS.room);
-    if (_sr) {
-      const _code = sanitize(_sr);
-      try {
-        const snap = await get(ref(db, `rooms/${_code}`));
-        if (snap.exists() && snap.val()?.state) {
-          if (session.roomCode) return; // ← ya se unió manualmente, no sobreescribir
-          session.roomCode = _code;
-          $("roomInput").value = _code;
-          const _ss = localStorage.getItem(LS.seat);
-          if (_ss != null) session.mySeat = Number(_ss);
-          startSession(_code);
-          return;
-        }
-      } catch (e) {}
-      localStorage.removeItem(LS.room);
-      localStorage.removeItem(LS.seat);
-    }
-  })();
   loadRoomList();
 }
