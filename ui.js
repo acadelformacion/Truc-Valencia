@@ -1317,10 +1317,12 @@ function renderAll(room) {
   renderHUD(state);
   $("myName").textContent = pName(state, session.mySeat);
   $("rivalName").textContent = pName(state, other(session.mySeat));
-  // Sync avatar selection UI
-  document
-    .querySelectorAll(".av-opt")
-    .forEach((el, i) => el.classList.toggle("av-selected", i === myAvatar));
+  // Sync avatar selection UI (índice = data-av, coherente con AVATAR_IMAGES)
+  document.querySelectorAll(".av-opt").forEach((el) => {
+    const i = Number(el.dataset.av);
+    if (Number.isFinite(i))
+      el.classList.toggle("av-selected", i === myAvatar);
+  });
   renderRivalCards(state.hand?.hands?.[K(other(session.mySeat))]);
   updateRivalTimer(state);
   renderMyCards(state);
@@ -1596,15 +1598,16 @@ async function sendChat() {
 // --- Room ---------------------------------------------------------------------
 
 // --- Avatars ------------------------------------------------------------------
+// Mismo orden que .av-opt en index.html (data-av 0..7)
 const AVATAR_IMAGES = [
-  "Media/Images/Avatars/Avatar1.png",
-  "Media/Images/Avatars/Avatar3.png",
   "Media/Images/Avatars/Avatar4.png",
-  "Media/Images/Avatars/Avatar5.png",
-  "Media/Images/Avatars/Avatar6.png",
-  "Media/Images/Avatars/Avatar7.png",
+  "Media/Images/Avatars/Avatar3.png",
+  "Media/Images/Avatars/Avatar1.png",
   "Media/Images/Avatars/Avatar14.png",
   "Media/Images/Avatars/Avatar16.png",
+  "Media/Images/Avatars/Avatar6.png",
+  "Media/Images/Avatars/Avatar7.png",
+  "Media/Images/Avatars/Avatar5.png",
 ];
 let myAvatar = Number(localStorage.getItem("truc_avatar") || 0);
 
@@ -1613,9 +1616,10 @@ function pickAvatar(idx) {
   if (idx === _rivalAvatarIdx && _rivalAvatarIdx >= 0) return;
   myAvatar = idx;
   localStorage.setItem("truc_avatar", String(idx));
-  document
-    .querySelectorAll(".av-opt")
-    .forEach((el, i) => el.classList.toggle("av-selected", i === idx));
+  document.querySelectorAll(".av-opt").forEach((el) => {
+    const i = Number(el.dataset.av);
+    if (Number.isFinite(i)) el.classList.toggle("av-selected", i === idx);
+  });
   if (session.roomRef && session.mySeat !== null) {
     set(
       ref(db, `rooms/${session.roomCode}/avatars/${K(session.mySeat)}`),
@@ -1649,7 +1653,9 @@ function renderAvatars(room) {
   if (rivEl) rivEl.innerHTML = getAvatarImg(rivIdx);
 
   // Gray out avatar options that the rival has chosen
-  document.querySelectorAll(".av-opt").forEach((el, i) => {
+  document.querySelectorAll(".av-opt").forEach((el) => {
+    const i = Number(el.dataset.av);
+    if (!Number.isFinite(i)) return;
     const takenByRival = i === rivIdx && rivIdx >= 0;
     el.classList.toggle("av-taken", takenByRival);
     el.style.opacity = takenByRival ? "0.3" : "1";
@@ -2060,9 +2066,8 @@ function sendPhrase(text) {
   // Muestra en mi pantalla
   showBubble("myBubble", text);
 
-  // Envía a Firebase para que lo vea el rival
-  set(ref(db, `rooms/${session.roomCode}/phrase`), {
-    seat: session.mySeat,
+  // Nodo por asiento (com avatars): les dues regles de Firebase solen permetre escriptura al propi _0/_1.
+  set(ref(db, `rooms/${session.roomCode}/phraseOut/${K(session.mySeat)}`), {
     msg: text,
     t: Date.now(),
   }).catch(() => {});
@@ -2078,12 +2083,13 @@ function sendPhrase(text) {
 
 function initPhraseListener(code) {
   if (_unsubPhrases) _unsubPhrases();
-  _unsubPhrases = onValue(ref(db, `rooms/${code}/phrase`), (snap) => {
+  if (session.mySeat !== 0 && session.mySeat !== 1) return;
+  const rivalKey = K(other(session.mySeat));
+  _unsubPhrases = onValue(ref(db, `rooms/${code}/phraseOut/${rivalKey}`), (snap) => {
     const data = snap.val();
     if (!data || !data.msg) return;
-    // Solo mostrar si es del rival y es reciente (menos de 6 segundos)
-    if (data.seat === session.mySeat) return;
-    if (Date.now() - data.t > 6000) return;
+    const age = Date.now() - (data.t || 0);
+    if (age > 8000 || age < -2000) return;
     showBubble("rivalBubble", data.msg);
   });
 }
@@ -2343,8 +2349,11 @@ export function initApp() {
   $("chatInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendChat();
   });
-  document.querySelectorAll(".av-opt").forEach((el, i) => {
-    el.addEventListener("click", () => pickAvatar(i));
+  document.querySelectorAll(".av-opt").forEach((el) => {
+    el.addEventListener("click", () => {
+      const i = Number(el.dataset.av);
+      if (Number.isFinite(i)) pickAvatar(i);
+    });
   });
   pickAvatar(myAvatar);
   loadLS();
