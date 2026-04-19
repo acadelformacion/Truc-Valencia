@@ -49,8 +49,19 @@ PANTALLA 1 · LOBBY
       <button id="btn-invitado" type="button" class="auth-btn-guest">
         Entrar com a convidat
       </button>
+      <p class="auth-legal-note">
+        En iniciar sessió, acceptes els nostres
+        <button
+          type="button"
+          class="auth-legal-link"
+          id="legalModalOpen"
+          aria-haspopup="dialog"
+          aria-controls="legalModal"
+        >
+          termes i política de privacitat
+        </button>.
+      </p>
     </div>
-    <p class="version auth-version-footer">Versió Beta 1.0</p>
   </div>
 
   <div id="pantalla-lobby" class="lobby-wrap lobby-hub hidden">
@@ -82,19 +93,30 @@ PANTALLA 1 · LOBBY
 
     <div class="lobby-hub-footer">
       <button type="button" id="btn-crear-publica" class="lbtn lbtn-primary lobby-hub-btn">
-        Crear Sala Pública
+        🌍 Crear Sala Pública
       </button>
-      <button type="button" id="btn-crear-privada" class="lbtn lbtn-secondary lobby-hub-btn">
-        Crear Sala Privada
-      </button>
-      <button type="button" id="btn-unirse-codigo" class="lbtn lbtn-secondary lobby-hub-btn lobby-hub-btn-outline">
-        Unir-se amb Codi
-      </button>
+      <div class="lobby-hub-footer-row">
+        <button type="button" id="btn-crear-privada" class="lbtn lbtn-secondary lobby-hub-btn lobby-hub-btn-compact">
+          🔒 Crear sala privada
+        </button>
+        <button type="button" id="btn-unirse-codigo" class="lbtn lbtn-secondary lobby-hub-btn lobby-hub-btn-compact">
+          🔑 Unir-se a sala privada
+        </button>
+      </div>
     </div>
 
     <input type="hidden" id="nameInput" value="" autocomplete="off" />
     <input type="hidden" id="roomInput" value="" autocomplete="off" />
   </div>
+
+  <footer id="lobbyPageFooter" class="auth-page-footer" role="contentinfo">
+    <div class="auth-footer-row">
+      <span class="auth-copyright">
+        © 2026 El Truc de la Terreta. Tots els drets reservats.
+      </span>
+      <span class="version auth-version-line">Versió Beta 1.0</span>
+    </div>
+  </footer>
 </div>
 
 
@@ -104,7 +126,10 @@ PANTALLA 2 · MESA DE JUEGO
 <div id="screenGame" class="screen hidden">
 
   <!-- HUD superior -->
-  <div id="absenceNotif" class="absence-notif hidden">⚠️ El teu rival s'ha desconnectat…</div>
+  <div id="absenceBar" class="absence-bar hidden" role="status">
+    <span class="absence-notif-msg">⚠️ El teu rival s'ha desconnectat…</span>
+    <span id="absenceCountdown" class="absence-countdown" aria-live="polite">60</span>
+  </div>
   <div id="hud">
     <div class="hud-left">
       <span id="hudRoom" class="hud-pill">—</span>
@@ -121,13 +146,10 @@ PANTALLA 2 · MESA DE JUEGO
     </div>
   </div>
 
-  <!-- Barra timer de turno -->
-  <div id="turnTimerBar"><div id="turnTimerFill"></div></div>
-
   <div id="table">
     <div id="rivalZone">
       <div class="rival-header">
-        <div class="player-avatar-wrap">
+        <div class="player-avatar-wrap" id="rivalAvatarContainer">
           <div id="rivalBubble" class="speech-bubble rival-bubble hidden"></div>
           <div id="rivalAv" class="player-av-sm"></div>
           <svg class="av-ring" id="rivalRing" viewBox="0 0 56 56">
@@ -233,11 +255,43 @@ PANTALLA 2 · MESA DE JUEGO
     </div>
   </div>
 
-  <!-- ── OVERLAY: SALA EN ESPERA (host ve botón de inicio) ── -->
+  <!-- ── OVERLAY: SALA EN ESPERA (cara a cara + preparació) ── -->
   <div id="waitingOverlay" class="overlay hidden">
-    <div class="overlay-card waiting-card">
+    <div class="overlay-card waiting-card waiting-faceoff-card">
       <img src="Media/Images/Others/portada.png" alt="El Truc de la Terreta" class="waiting-portada" />
-      
+
+      <div class="waiting-head-block">
+        <div class="ov-title">Sala creada</div>
+        <div id="waitingCodeRow" class="waiting-code-row">
+          <span class="waiting-code-lbl">Codi:</span>
+          <span id="waitingCode" class="waiting-code">—</span>
+        </div>
+      </div>
+
+      <div class="waiting-faceoff" aria-label="Jugadors">
+        <div id="slot-player-0" class="player-wait-slot" data-seat="0">
+          <span class="slot-role">Amfitrió</span>
+          <div class="slot-photo-frame">
+            <img id="waitSlotPhoto0" class="slot-photo" src="Media/Images/Others/avatar-convidat.webp" alt="" width="72" height="72" decoding="async" />
+          </div>
+          <div id="waitSlotName0" class="slot-name">—</div>
+          <div id="waitSlotGameAv0" class="slot-game-av" aria-hidden="true"></div>
+          <div id="waitSlotBadge0" class="slot-badge" data-state="pendent">Pendent...</div>
+        </div>
+
+        <div class="waiting-vs" aria-hidden="true">VS</div>
+
+        <div id="slot-player-1" class="player-wait-slot" data-seat="1">
+          <span class="slot-role">Invitat</span>
+          <div class="slot-photo-frame">
+            <img id="waitSlotPhoto1" class="slot-photo" src="Media/Images/Others/avatar-convidat.webp" alt="" width="72" height="72" decoding="async" />
+          </div>
+          <div id="waitSlotName1" class="slot-name">—</div>
+          <div id="waitSlotGameAv1" class="slot-game-av" aria-hidden="true"></div>
+          <div id="waitSlotBadge1" class="slot-badge" data-state="pendent">Pendent...</div>
+        </div>
+      </div>
+
       <div class="avatar-pick">
         <div class="avatar-pick-lbl">Tria el teu avatar:</div>
         <div class="avatar-options">
@@ -251,27 +305,24 @@ PANTALLA 2 · MESA DE JUEGO
           <div class="av-opt" data-av="7"><img src="Media/Images/Avatars/Avatar5.png" alt="Avatar 5"></div>
         </div>
       </div>
-  
-      <div class="ov-title">Sala creada</div>
-      
-      <div class="waiting-code-row">
-        <span class="waiting-code-lbl">Codi:</span>
-        <span id="waitingCode" class="waiting-code">—</span>
-      </div>
-  
+
       <div id="waitingStatus" class="waiting-status">Esperant el segon jugador...</div>
-  
-      <button id="startBtn" class="lbtn lbtn-primary hidden" style="margin-top:8px;width:100%;font-size:18px;padding:15px;">
-        ▶ Iniciar partida
-      </button>
-  
-      <button id="guestReadyBtn" class="lbtn lbtn-secondary hidden" style="margin-top:8px;width:100%;">
-        ✋ Estic preparat!
-      </button>
-  
-      <div id="guestWaitMsg" class="waiting-note hidden" style="margin-top:10px; font-weight:bold;"></div>
+
+      <div class="waiting-actions">
+        <button type="button" id="hostReadyBtn" class="lbtn lbtn-secondary waiting-action-btn hidden">
+          ✋ Estic preparat!
+        </button>
+        <button type="button" id="guestReadyBtn" class="lbtn lbtn-secondary waiting-action-btn hidden">
+          ✋ Estic preparat!
+        </button>
+        <button type="button" id="startBtn" class="lbtn lbtn-primary waiting-action-btn waiting-start-btn hidden">
+          ▶ Iniciar partida
+        </button>
+      </div>
+
+      <div id="guestWaitMsg" class="waiting-note hidden"></div>
       <div id="waitingNote" class="waiting-note"></div>
-  
+
       <button type="button" id="backToMainBtn" class="btn-volver">
         ⏪ Tornar a l'inici
       </button>
@@ -284,7 +335,6 @@ PANTALLA 2 · MESA DE JUEGO
     <div class="overlay-card between-card">
       <div class="ov-title">Resum de la mà</div>
       <div id="countdownLabel" class="cd-summary"></div>
-      <div id="countdownNum" class="ov-num"></div>
     </div>
   </div>
 
@@ -304,5 +354,31 @@ PANTALLA 2 · MESA DE JUEGO
   </div>
 
 </div><!-- /screenGame -->
+
+<div
+  id="legalModal"
+  class="legal-modal hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="legalModalTitle"
+  aria-hidden="true"
+>
+  <div class="legal-modal-backdrop" id="legalModalBackdrop" aria-hidden="true"></div>
+  <div class="legal-modal-panel">
+    <div class="legal-modal-head">
+      <h2 id="legalModalTitle" class="legal-modal-title">Informació legal</h2>
+    </div>
+    <iframe
+      class="legal-modal-iframe"
+      title="Informació legal"
+      src="legal.html"
+    ></iframe>
+    <div class="legal-modal-actions">
+      <button type="button" class="legal-modal-close-btn" id="legalModalClose">
+        Tancar
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

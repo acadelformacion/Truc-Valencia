@@ -65,6 +65,7 @@ export function defaultState() {
     status: "waiting",
     roomCode: "",
     players: { [K(0)]: null, [K(1)]: null },
+    ready: { [K(0)]: false, [K(1)]: false },
     scores: { [K(0)]: OFFSET, [K(1)]: OFFSET },
     handNumber: OFFSET,
     mano: 0,
@@ -72,6 +73,7 @@ export function defaultState() {
     hand: null,
     logs: [],
     winner: null,
+    gameEndReason: null,
   };
 }
 
@@ -106,10 +108,11 @@ export async function dealHand() {
     if (state.status === "game_over") return false;
     if (state.hand?.status === "in_progress") return false;
 
-    // Primera mano: decidir aleatoriamente quién empieza
+    // Primera mano: preparació + quién empieza
     if (real(state.handNumber) === 0) {
-      const manoInicial = Math.random() < 0.5 ? 0 : 1;
-      state.mano = manoInicial;
+      if (!state.ready) state.ready = { [K(0)]: false, [K(1)]: false };
+      if (!state.ready[K(0)] || !state.ready[K(1)]) return false;
+      state.mano = Math.random() < 0.5 ? 0 : 1;
     }
 
     state.hand = Logica.makeHand(state.mano);
@@ -465,7 +468,9 @@ export async function requestRematch() {
       state.mano = other(state.mano);
       state.hand = null;
       state.winner = null;
+      state.gameEndReason = null;
       state.rematch = { [K(0)]: false, [K(1)]: false };
+      state.ready = { [K(0)]: false, [K(1)]: false };
       state.logs = [];
       pushLog(state, "Revenja iniciada!");
     }
@@ -477,32 +482,35 @@ export async function claimWinByRivalAbsence() {
   await mutate((state) => {
     if (state.status === "game_over") return false;
 
-    // Identificamos quién es el rival (el que se ha ido)
-    const rivalSeat = session.mySeat === 0 ? 1 : 0;
-    const h = state.hand;
+    const preGameLobby =
+      state.status === "waiting" && real(state.handNumber || OFFSET) === 0;
+    if (preGameLobby) return false;
 
-    // 1. Si estábamos en mitad de una mano jugando puntos...
-    if (h && state.status === "playing" && h.status === "in_progress") {
-      const rivalName = state.players?.[rivalSeat]?.name || "El rival";
+    if (session.mySeat !== 0 && session.mySeat !== 1) return false;
 
-      // Llamamos a tu lógica de "Me'n vaig" pasándole el asiento del rival.
-      // Esto calculará automáticamente los envites/trucs pendientes y te sumará los puntos.
-      Logica.applyHandEnd(
-        state,
-        `${rivalName} s'ha desconnectat. Abandona la mà.`,
-        rivalSeat,
-      );
+    const rivalSeat = other(session.mySeat);
+    const me = state.players?.[K(session.mySeat)];
+    const rival = state.players?.[K(rivalSeat)];
+    if (!me) return false;
+
+    const setWin = (logLine) => {
+      if (state.hand?.allTricks) state.lastAllTricks = state.hand.allTricks;
+      state.hand = null;
+      state.status = "game_over";
+      state.winner = session.mySeat;
+      state.gameEndReason = "abandonment";
+      pushLog(state, logLine);
+    };
+
+    // Rival ja no està a `players` (p. ex. ha fet «Eixir» i s'ha borrat el node)
+    if (!rival) {
+      setWin("Victòria per abandonament (rival fora de la sala).");
       return true;
     }
 
-    // 2. Si NO había mano en curso (estábais esperando a repartir) o ya se rindió de la mano
-    // y sigue desconectado, entonces sí reclamamos la victoria total de la partida.
-    state.status = "game_over";
-    state.winner = session.mySeat;
-    pushLog(
-      state,
-      (state.players?.[rivalSeat]?.name || "El rival") +
-        " ha abandonat la partida. Has guanyat!",
+    const rivalName = rival.name || "El rival";
+    setWin(
+      `${rivalName} no s'ha reconnectat: victòria per abandonament.`,
     );
     return true;
   });

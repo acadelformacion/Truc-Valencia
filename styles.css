@@ -10,9 +10,6 @@
 
 :root {
   --bg: #0b1512;
-  --felt: #0f1f17;
-  --felt2: #122318;
-  --felt3: #163020;
   --border: rgba(255, 255, 255, 0.07);
   --border-hi: rgba(255, 255, 255, 0.15);
   --gold: #e8ab2a;
@@ -48,9 +45,7 @@ body {
   display: none !important;
 }
 
-/* ── LOBBY SCREEN ────────────────────────────────────── */
-
-/* Capa de blur + oscurecimiento SIN pointer-events para no bloquear clicks */
+/* Pantalla lobby: capa de fondo sin pointer-events */
 #screenLobby::before {
   content: "";
   position: fixed;
@@ -129,15 +124,187 @@ body {
   letter-spacing: 0.3px;
 }
 
-.auth-version-footer {
+/* Peu fix (copyright + versió), fora del requadre d’auth; només pantalla d’inici de sessió */
+.auth-page-footer {
   position: fixed;
-  bottom: max(14px, env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
-  text-align: center;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
   z-index: 4;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: min(100%, 32rem);
+  margin: 0 auto;
   pointer-events: none;
+}
+
+#screenLobby:has(#pantalla-lobby:not(.hidden)) .auth-page-footer {
+  display: none !important;
+}
+
+.auth-footer-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.auth-legal-note,
+.auth-copyright {
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(200, 210, 205, 0.55);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.auth-legal-note {
+  margin: 10px 0 0;
+  max-width: 100%;
+  text-align: center;
+}
+
+.auth-copyright {
+  font-size: 10px;
+  color: rgba(180, 190, 185, 0.45);
+  flex: 1 1 auto;
+  min-width: min(100%, 12rem);
+}
+
+.auth-legal-link {
+  display: inline;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  color: rgba(210, 225, 218, 0.72);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth-legal-link:hover {
+  color: rgba(232, 249, 233, 0.88);
+}
+
+.auth-version-line {
+  margin: 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.38);
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin-left: auto;
+  text-align: right;
+}
+
+.auth-footer-row .auth-copyright {
+  text-align: left;
+}
+
+/* Modal informació legal (iframe legal.html) */
+.legal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px))
+    max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+}
+
+.legal-modal.hidden {
+  display: none !important;
+}
+
+.legal-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.legal-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  max-height: min(85vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 28, 22, 0.97);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.legal-modal-head {
+  flex-shrink: 0;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.legal-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.02em;
+}
+
+.legal-modal-iframe {
+  flex: 1;
+  min-height: 220px;
+  width: 100%;
+  border: 0;
+  background: #f7faf8;
+}
+
+.legal-modal-actions {
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.legal-modal-close-btn {
+  min-width: 120px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(0, 0, 0, 0.15)
+  );
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.legal-modal-close-btn:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.legal-modal-close-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .auth-actions {
@@ -160,6 +327,16 @@ body {
   padding: 4px 0;
   transform: scale(1.07);
   transform-origin: center top;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* El botó de Google (iframe) amb forma pill alineada amb el radi del convidat */
+.auth-google-wrap #g_id_signin {
+  display: flex;
+  justify-content: center;
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .auth-err-msg {
@@ -228,7 +405,7 @@ body {
 #btn-invitado:active {
   transform: translateY(1px);
 }
-/* El panel verde debe quedar encima de la capa de blur */
+/* Panel lobby encima del blur */
 .lobby-wrap {
   position: relative;
   z-index: 1;
@@ -237,15 +414,14 @@ body {
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   background: lab(33.24% -32.48 19.97 / 0.93); /* verde tapete */
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
-  gap: 12px;
 }
 
-/* Hub lobby (post-auth) */
+/* Hub lobby tras autenticación */
 .lobby-hub {
   max-width: 440px;
   min-height: min(88vh, 680px);
@@ -385,6 +561,29 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+.lobby-hub-footer-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%;
+}
+
+.lobby-hub-footer-row .lobby-hub-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
+/* Botons secundaris del lobby: més baixos i discrets que la sala pública */
+.lobby-hub-btn-compact {
+  padding: 9px 10px !important;
+  font-size: 13px !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .lobby-hub-btn {
   width: 100%;
   padding: 14px 16px !important;
@@ -401,92 +600,6 @@ body {
 .lobby-hub-btn-outline:hover {
   background: rgba(232, 171, 42, 0.12) !important;
   border-color: rgba(232, 171, 42, 0.65) !important;
-}
-.lobby-header {
-  text-align: center;
-}
-.lobby-portada {
-  width: 200px;
-  height: auto;
-  border-radius: 8px;
-  margin-bottom: 2px;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  object-fit: cover;
-}
-.ls {
-  opacity: 0.75;
-}
-.ls.oros {
-  color: #c9930a;
-}
-.ls.copas {
-  color: #b52828;
-}
-.ls.espadas {
-  color: #a0b4d8;
-}
-.ls.bastos {
-  color: #5a9e3a;
-}
-h1 {
-  font-size: 34px;
-  font-weight: 900;
-  letter-spacing: -1px;
-  color: var(--text);
-}
-h1 .hi {
-  color: var(--gold);
-}
-.lobby-sub {
-  font-size: 13px;
-  font-weight: 300;
-  color: var(--muted);
-  margin-top: 4px;
-}
-.lobby-card {
-  display: flex;
-  flex-direction: column;
-}
-.lfield {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 8px;
-}
-.lfield label {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-.lfield input {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 13px;
-  font: inherit;
-  font-size: 15px;
-  color: var(--text);
-  outline: none;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-.lfield input::placeholder {
-  color: var(--dim);
-}
-.lfield input:focus {
-  border-color: rgba(232, 171, 42, 0.5);
-  box-shadow: 0 0 0 3px rgba(232, 171, 42, 0.1);
-}
-.lobby-btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 4px;
 }
 .lbtn {
   font-family: "Outfit", sans-serif;
@@ -531,23 +644,8 @@ h1 .hi {
 .lobby-msg.good {
   color: #7ee787;
 }
-.lobby-debug {
-  text-align: center;
-}
-.chk-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.chk-line input {
-  accent-color: var(--gold);
-  cursor: pointer;
-}
 
-/* ══ HUD ════════════════════════════════ */
+/* HUD */
 #hud {
   position: fixed;
   top: 0;
@@ -625,47 +723,14 @@ h1 .hi {
   color: #ff8080;
 }
 
-/* ══ TURN TIMER BAR ═════════════════════ */
-#turnTimerBar {
-  position: fixed;
-  top: 56px;
-  left: 0;
-  right: 0;
-  z-index: 49;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.05);
-}
-#turnTimerFill {
-  height: 100%;
-  width: 0%;
-  background: var(--green);
-  transition:
-    width 1s linear,
-    background 0.3s;
-}
-#turnTimerFill.urgent {
-  background: var(--gold);
-}
-#turnTimerFill.timer-flash {
-  animation: timerFlash 0.4s ease infinite alternate;
-}
-@keyframes timerFlash {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0.3;
-  }
-}
-
-/* ══ TABLE ══════════════════════════════ */
+/* Mesa (#table) */
 #table {
   position: fixed !important;
-  top: 59px !important;
+  top: 56px !important;
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  padding: 14px 20px 90px !important; /* 90px = espacio para los botones flotantes */
+  padding: 14px 20px 90px !important; /* espacio panel de acciones */
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -682,16 +747,10 @@ h1 .hi {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 12px,
-    rgba(255, 255, 255, 0.007) 12px,
-    rgba(255, 255, 255, 0.007) 13px
-  );
+  background: none;
 }
 
-/* Rival */
+/* Zona rival */
 #rivalZone {
   display: flex;
   flex-direction: column;
@@ -704,14 +763,18 @@ h1 .hi {
   font-size: 17px !important;
   font-weight: 700 !important;
   color: white;
-  text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.8); /* Sombreado para que no se pierda con el fondo */
+  text-shadow: 0px 1px 4px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
 }
 .rival-card-slot {
-  position: absolute;
+  position: absolute !important;
+  top: 0;
+  left: 50%;
+  margin-left: -38px;
+  transform-origin: bottom center;
   transition:
-    transform 0.4s ease,
-    opacity 0.4s ease;
+    transform 0.3s ease,
+    opacity 0.3s ease;
 }
 .rival-card-slot:nth-child(1) {
   transform: translateX(-54px) rotate(-9deg);
@@ -733,8 +796,9 @@ h1 .hi {
   transform: translateX(0) rotate(0);
 }
 
-/* Centro */
+/* Zona central (bazes) */
 #centerZone {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -742,21 +806,6 @@ h1 .hi {
   justify-content: center;
   gap: 10px;
   z-index: 1;
-}
-.trick-area {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.trick-divider {
-  width: 1px;
-  height: 70px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(255, 255, 255, 0.12),
-    transparent
-  );
 }
 .center-info {
   font-size: 12px;
@@ -767,7 +816,7 @@ h1 .hi {
   text-align: center;
 }
 
-/* Mi zona */
+/* Zona del jugador */
 #myZone {
   display: flex;
   flex-direction: column;
@@ -775,33 +824,33 @@ h1 .hi {
   gap: 8px;
   z-index: 1;
   width: 100%;
-  /* Sin padding-bottom artificial */
 }
 
 .my-cards {
   display: flex;
   justify-content: center;
   position: relative;
-  height: 114px; /* Altura en móvil */
+  height: 114px;
   transition: height 0.3s ease;
 }
 
-/* Ajuste para PC (con el nuevo tamaño de 105px) */
+/* Alçada de la mà en escriptori */
 @media (min-width: 1024px) {
-  /* Bajamos de 195px a 165px para que la mano quede ajustada y elegante */
   .my-cards {
     height: 165px;
   }
 }
 .my-card-wrap {
   position: relative;
-  transition: transform 0.18s ease;
-  margin: 0 -8px; /* Móvil */
+  transition:
+    transform 0.2s ease,
+    z-index 0s;
+  margin: 0 -8px;
 }
 
 @media (min-width: 768px) {
   .my-card-wrap {
-    margin: 0 -15px; /* En PC las separamos un poco más para que luzcan */
+    margin: 0 -15px;
   }
 }
 .my-card-wrap:hover {
@@ -817,9 +866,9 @@ h1 .hi {
     0 0 0 2px var(--gold);
 }
 
-/* ══ PLAYING CARDS ══════════════════════ */
+/* Cartes (playing-card) */
 .playing-card {
-  width: 86px; /* Un pelín más grande en móvil */
+  width: 86px;
   height: 123px;
   border-radius: var(--r-card);
   background: linear-gradient(
@@ -837,18 +886,18 @@ h1 .hi {
   color: #111;
   transition:
     width 0.3s ease,
-    height 0.3s ease; /* Para que el cambio sea suave */
+    height 0.3s ease;
 }
 
-/* --- TAMAÑO PARA PC --- */
+/* Mida carta escriptori */
 @media (min-width: 768px) {
   .playing-card {
-    width: 130px; /* ¡Mucho más grande! */
+    width: 130px;
     height: 195px;
-    padding: 10px; /* Más aire por dentro */
+    padding: 10px;
   }
 }
-/* --- Card artwork images (Media/Images/Cards) --- */
+/* Imatge de carta (Media/Images/Cards) */
 .playing-card.use-img {
   padding: 0 !important;
   display: block;
@@ -862,30 +911,6 @@ h1 .hi {
   border-radius: inherit;
   user-select: none;
   pointer-events: none;
-}
-.pc-top {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.pc-rank {
-  font-family: "Crimson Pro", serif;
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1;
-  color: inherit;
-}
-.pc-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
-.pc-bot {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  transform: rotate(180deg);
 }
 .s-oros {
   color: #b07d10;
@@ -925,7 +950,7 @@ h1 .hi {
   font-style: italic;
 }
 
-/* ══ ACTION PANEL ═══════════════════════ */
+/* Panell d'accions inferior */
 #actionPanel {
   position: fixed !important;
   bottom: 0 !important;
@@ -975,7 +1000,7 @@ h1 .hi {
   min-height: 18px;
 }
 
-/* ══ SIDE INFO ══════════════════════════ */
+/* Info lateral (torn / ronda) */
 #sideInfo {
   position: fixed;
   right: 12px;
@@ -1012,18 +1037,18 @@ h1 .hi {
   margin-top: 1px;
 }
 
-/* ══ LOG PANEL (Ajustado: más bajo y más pequeño) ══ */
+/* Panell de registre */
 #logPanel {
   position: fixed;
   right: 12px;
-  top: 180px; /* <--- Aumentado de 165 a 180 para separarlo de Ronda */
+  top: 180px;
   z-index: 40;
-  width: 160px; /* <--- Un poco más estrecho (antes 190) */
+  width: 160px;
   text-align: right;
 }
 
 .log-toggle {
-  font-size: 10px; /* <--- Bajado 1px */
+  font-size: 10px;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
@@ -1042,11 +1067,11 @@ h1 .hi {
     0,
     0,
     0.65
-  ); /* Un pelín más oscuro para leer mejor la letra pequeña */
+  );
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px;
-  max-height: 130px; /* <--- Reducido de 160 a 130 para que sea más discreto */
+  max-height: 130px;
   overflow-y: auto;
   margin-top: 4px;
   scrollbar-width: thin;
@@ -1064,7 +1089,7 @@ h1 .hi {
 }
 
 .log-entry {
-  font-size: 10px; /* <--- Letra más pequeña (antes 11) */
+  font-size: 10px;
   color: var(--muted);
   line-height: 1.3;
   padding: 2px 0;
@@ -1072,7 +1097,7 @@ h1 .hi {
   text-align: right;
 }
 
-/* ══ CHAT ═══════════════════════════════ */
+/* Xat */
 #chatPanel {
   position: fixed;
   bottom: 134px;
@@ -1192,7 +1217,7 @@ h1 .hi {
   opacity: 0.85;
 }
 
-/* ══ OVERLAYS ═══════════════════════════ */
+/* Overlays */
 .overlay {
   position: fixed;
   inset: 0;
@@ -1203,7 +1228,7 @@ h1 .hi {
   align-items: center;
   justify-content: center;
 }
-/* ── WAITING OVERLAY: mismo fondo pero como overlay ── */
+/* Overlay sala en espera (fons imatge) */
 #waitingOverlay {
   background:
     url("./Media/Images/Others/fondo-pantalla-inicial.webp") center/cover
@@ -1219,21 +1244,46 @@ h1 .hi {
   z-index: 0;
 }
 
+/* Pre-partida: tot el contingut visible sense scroll (PC i mòbil) */
+#waitingOverlay.overlay {
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: 100svh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  max-height: 100svh;
+  height: 100vh;
+  height: 100dvh;
+  height: 100svh;
+  padding: max(4px, env(safe-area-inset-top, 0px))
+    max(6px, env(safe-area-inset-right, 0px))
+    max(4px, env(safe-area-inset-bottom, 0px))
+    max(6px, env(safe-area-inset-left, 0px));
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .overlay.hidden {
   display: none !important;
 }
 
-/* Countdown entre manos: flotante, semitransparente, no tapa el tablero */
+/* Entre mans: resum a baix; compte enrere al centre (tableCdEl) */
 #countdownOverlay {
+  z-index: 320;
   background: transparent !important;
   backdrop-filter: none !important;
   pointer-events: none;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 150px;
+  padding: 0 16px 150px;
 }
 #countdownOverlay .overlay-card {
-  background: rgba(8, 16, 11, 0.82);
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  background: rgba(8, 16, 11, 0.88);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(232, 171, 42, 0.25);
   padding: 16px 28px;
@@ -1264,11 +1314,6 @@ h1 .hi {
   }
 }
 
-.ov-suits {
-  font-size: 20px;
-  letter-spacing: 10px;
-  margin-bottom: 4px;
-}
 .ov-title {
   font-size: 16px;
   font-weight: 700;
@@ -1276,40 +1321,8 @@ h1 .hi {
   text-transform: uppercase;
   color: var(--muted);
 }
-.ov-num {
-  font-family: "Crimson Pro", serif;
-  font-size: 110px;
-  font-weight: 600;
-  color: var(--gold);
-  line-height: 1;
-  text-shadow: 0 0 80px rgba(232, 171, 42, 0.45);
-  animation: numPulse 0.9s ease-in-out infinite;
-}
-@keyframes numPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.08);
-  }
-}
-.ov-label {
-  font-size: 14px;
-  font-weight: 300;
-  color: var(--muted);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
 
-/* Waiting overlay */
-.waiting-code {
-  font-family: "Crimson Pro", serif;
-  font-size: 56px;
-  font-weight: 600;
-  color: var(--gold);
-  letter-spacing: 8px;
-}
+/* Overlay sala en espera */
 .waiting-status {
   font-size: 14px;
   color: var(--muted);
@@ -1321,7 +1334,7 @@ h1 .hi {
   margin-top: 4px;
 }
 
-/* Game over */
+/* Fin de partida */
 .go-winner {
   font-family: "Crimson Pro", serif;
   font-size: 36px;
@@ -1333,27 +1346,7 @@ h1 .hi {
   color: var(--muted);
 }
 
-/* ══ ANIMATIONS ═════════════════════════ */
-@keyframes dealIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.88);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.deal-anim {
-  animation: dealIn 0.28s ease both;
-}
-.deal-anim:nth-child(2) {
-  animation-delay: 0.08s;
-}
-.deal-anim:nth-child(3) {
-  animation-delay: 0.16s;
-}
-
+/* Animaciones cartas / overlays */
 @keyframes flyToCenter {
   0% {
     opacity: 1;
@@ -1382,7 +1375,7 @@ h1 .hi {
   animation: landOnTable 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
-/* ══ RESPONSIVE ═════════════════════════ */
+/* Responsive */
 @media (max-width: 520px) {
   #sideInfo {
     display: none;
@@ -1406,16 +1399,7 @@ h1 .hi {
   }
 }
 
-#countdownOverlay .ov-num {
-  font-size: 56px;
-  animation: none;
-}
-#countdownOverlay .ov-label {
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-
-/* Summary label in between-hands overlay */
+/* Resumen entre manos */
 .cd-summary {
   font-size: 12px;
   color: var(--muted);
@@ -1424,33 +1408,32 @@ h1 .hi {
   min-height: 20px;
 }
 
-/* lobby z-index managed in main block */
-
-/* ── RIVAL TURN INDICATOR ── */
-.rival-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
+#countdownOverlay .cd-summary {
+  color: #e8f0eb;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.65;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  max-height: 32vh;
+  overflow-y: auto;
 }
 
-/* ── MY TURN INDICATOR on action panel ── */
+#countdownOverlay .between-card .ov-title {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* Indicador de torn al panell */
 #statusMsg.my-turn {
   color: var(--gold);
   font-weight: 700;
 }
 
-/* ── GAME OVER ── */
 .go-rematch-status {
   font-size: 12px;
   color: var(--muted);
   text-align: center;
   min-height: 16px;
   margin-top: 4px;
-}
-#gameOverOverlay .overlay-card {
-  background: rgba(10, 18, 14, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 #goTitle {
   font-size: 22px;
@@ -1459,78 +1442,38 @@ h1 .hi {
   letter-spacing: -0.5px;
 }
 
-/* ── RIVAL CARDS FAN (absolute positioned) ── */
+/* Cartes del rival (abanico) */
 .rival-cards {
   position: relative !important;
   height: 96px !important;
   width: 180px !important;
   margin: 0 auto;
 }
-.rival-card-slot {
-  position: absolute !important;
-  top: 0;
-  left: 50%;
-  margin-left: -38px; /* half card width */
-  transform-origin: bottom center;
-  transition:
-    transform 0.3s ease,
-    opacity 0.3s ease;
-}
 
-/* ── LOBBY: full bleed background, no black bar ── */
-/* green lobby panel handled in main block */
-/* Also for waitingOverlay card */
+/* Targeta de l'overlay sala en espera */
 #waitingOverlay .overlay-card {
   background: rgba(20, 90, 45, 0.94) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-/* ── TRICK AREA: side by side layout ── */
-.trick-slot {
-  width: auto !important;
-  min-width: 76px !important;
-  max-width: 280px !important;
-  min-height: 114px !important;
-  position: relative !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
-  gap: 5px !important;
-}
-
-/* ── LOBBY TAGLINE ── */
-.lobby-tagline {
-  text-align: center;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-  font-style: italic;
-  padding-top: 4px;
-}
-/* ── LOBBY: fondo con blur ── */
+/* Lobby scroll */
 #screenLobby {
   background: var(--bg);
   overflow-y: auto;
 }
 
-/* ── EL RECUADRO (El div de dentro) ── */
+/* Contenidor centrat del lobby */
 #screenLobby > div {
-  /* EL TRUCO: Margen 'auto' a los lados para centrar, 
-     y 60px fijos arriba y abajo para que NUNCA toque el borde */
   margin: 60px auto !important;
-
   height: auto !important;
   max-width: 450px;
-  width: 90%; /* Para que en móvil no pegue a los lados */
-
+  width: 90%;
   position: relative;
   z-index: 1;
-
-  /* Esto asegura que el navegador lo trate como un bloque centrado */
   flex-shrink: 0;
 }
 
-/* ── LOBBY: smaller on mobile, show bg top+bottom ── */
+/* Lobby compacte en pantalla petita */
 @media (max-height: 700px), (max-width: 480px) {
   .auth-wrap {
     min-height: 72vh;
@@ -1552,15 +1495,9 @@ h1 .hi {
     padding: 18px 18px;
     gap: 14px;
   }
-  .lobby-portada {
-    width: 140px;
-  }
-  h1 {
-    font-size: 26px;
-  }
 }
 
-/* ── FELT TEXTURE on green panels ── */
+/* Textura tapís en panells verds */
 .lobby-wrap,
 #waitingOverlay .overlay-card,
 #waitingOverlay .waiting-card {
@@ -1581,13 +1518,18 @@ h1 .hi {
     ) !important;
 }
 
-/* ── WAITING OVERLAY updates ── */
+/* Overlay sala: codi i portada */
 .waiting-portada {
   width: 90px;
   height: auto;
   border-radius: 8px;
   display: block;
   margin: 0 auto 10px;
+}
+#waitingOverlay .waiting-portada {
+  width: auto;
+  max-height: clamp(28px, 6.5vmin, 48px);
+  margin: 0 auto clamp(2px, 1vmin, 6px);
 }
 .waiting-code-row {
   display: flex;
@@ -1596,18 +1538,348 @@ h1 .hi {
   justify-content: center;
   margin: 4px 0;
 }
+#waitingOverlay .waiting-code-row {
+  margin: 0;
+}
 .waiting-code-lbl {
   font-size: 18px;
   color: rgba(255, 255, 255, 0.6);
 }
+#waitingOverlay .waiting-code-lbl {
+  font-size: clamp(12px, 2.8vmin, 16px);
+}
 .waiting-code {
+  font-family: "Crimson Pro", serif;
   font-size: 32px;
   font-weight: 900;
   letter-spacing: 4px;
   color: var(--gold);
 }
+#waitingOverlay .waiting-code {
+  font-size: clamp(17px, 4.8vmin, 26px);
+  letter-spacing: clamp(2px, 0.6vmin, 4px);
+  line-height: 1.1;
+}
 
-/* ── SCORE SUMMARY in countdown overlay ── */
+/* Pre-partida: cara a cara */
+#waitingOverlay .waiting-faceoff-card {
+  position: relative;
+  z-index: 1;
+  max-width: min(920px, 96vw);
+  width: 100%;
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - 20px);
+  max-height: calc(100svh - 20px);
+  min-height: 0;
+  padding: clamp(6px, 1.4vmin, 16px) clamp(10px, 2.2vmin, 18px);
+  align-items: stretch;
+  gap: clamp(2px, 1vmin, 8px);
+  overflow: hidden;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+}
+
+.waiting-head-block {
+  text-align: center;
+  margin-bottom: 4px;
+}
+#waitingOverlay .waiting-head-block {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+#waitingOverlay .waiting-head-block .ov-title {
+  font-size: clamp(11px, 2.4vmin, 14px);
+  letter-spacing: clamp(1px, 0.35vmin, 2px);
+  line-height: 1.2;
+}
+
+.waiting-faceoff {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px 18px;
+  align-items: stretch;
+  width: 100%;
+  margin: 10px 0 18px;
+}
+#waitingOverlay .waiting-faceoff {
+  gap: clamp(6px, 1.5vmin, 12px) clamp(8px, 2vmin, 16px);
+  margin: clamp(2px, 0.8vmin, 8px) 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.player-wait-slot {
+  background:
+    linear-gradient(
+      165deg,
+      rgba(42, 26, 12, 0.94) 0%,
+      rgba(18, 11, 6, 0.97) 100%
+    );
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  border-radius: 18px;
+  padding: 14px 12px 16px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+#waitingOverlay .player-wait-slot {
+  padding: clamp(6px, 1.4vmin, 12px) clamp(6px, 1.2vmin, 10px);
+  gap: clamp(3px, 0.9vmin, 6px);
+  border-radius: clamp(12px, 2.5vmin, 16px);
+}
+
+.slot-role {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 171, 42, 0.88);
+}
+#waitingOverlay .slot-role {
+  font-size: clamp(9px, 2vmin, 11px);
+}
+
+.slot-photo-frame {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.2);
+}
+#waitingOverlay .slot-photo-frame {
+  width: clamp(48px, 12vmin, 72px);
+  height: clamp(48px, 12vmin, 72px);
+}
+
+.slot-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.slot-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f0f4ef;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#waitingOverlay .slot-name {
+  font-size: clamp(11px, 2.6vmin, 14px);
+}
+
+.slot-game-av {
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#waitingOverlay .slot-game-av {
+  width: clamp(52px, 13vmin, 84px);
+  height: clamp(52px, 13vmin, 84px);
+  border-radius: clamp(8px, 1.8vmin, 12px);
+}
+
+.slot-game-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.slot-game-av-empty {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.05) 0,
+    rgba(255, 255, 255, 0.05) 2px,
+    transparent 2px,
+    transparent 7px
+  );
+}
+
+.slot-badge {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+#waitingOverlay .slot-badge {
+  font-size: clamp(9px, 2.1vmin, 11px);
+  padding: clamp(3px, 0.8vmin, 6px) clamp(6px, 1.4vmin, 10px);
+  line-height: 1.2;
+}
+
+.slot-badge[data-state="picking"] {
+  color: #edd27a;
+}
+
+.slot-badge-ready {
+  color: #0a160f !important;
+  background: linear-gradient(180deg, #7aecb3, #2ea043);
+  border-color: rgba(126, 236, 179, 0.85);
+  animation: badgeReadyGlow 1.45s ease-in-out infinite;
+}
+
+@keyframes badgeReadyGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 160, 67, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px rgba(110, 231, 168, 0.42);
+  }
+}
+
+.waiting-vs {
+  align-self: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: rgba(232, 171, 42, 0.92);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+  padding: 0 6px;
+}
+#waitingOverlay .waiting-vs {
+  font-size: clamp(14px, 3.5vmin, 20px);
+  padding: 0 clamp(4px, 1vmin, 8px);
+}
+
+.waiting-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+}
+#waitingOverlay .waiting-actions {
+  gap: clamp(4px, 1vmin, 8px);
+  margin-top: clamp(2px, 0.6vmin, 6px);
+  flex-shrink: 0;
+}
+
+.waiting-action-btn.waiting-start-btn {
+  font-size: 18px;
+  padding: 15px;
+}
+#waitingOverlay .waiting-action-btn {
+  padding: clamp(8px, 2vmin, 13px) clamp(12px, 3vmin, 18px) !important;
+  font-size: clamp(13px, 2.8vmin, 16px) !important;
+}
+#waitingOverlay .waiting-action-btn.waiting-start-btn {
+  font-size: clamp(14px, 3vmin, 17px) !important;
+}
+
+#waitingOverlay .waiting-status {
+  font-size: clamp(11px, 2.5vmin, 13px);
+  line-height: 1.25;
+  min-height: 0;
+  flex-shrink: 0;
+}
+#waitingOverlay .waiting-note {
+  font-size: clamp(10px, 2.2vmin, 11px);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+#waitingOverlay .btn-volver {
+  margin-top: clamp(2px, 0.6vmin, 6px);
+  padding: clamp(5px, 1.2vmin, 8px) clamp(10px, 2vmin, 14px);
+  font-size: clamp(11px, 2.5vmin, 13px);
+  flex-shrink: 0;
+}
+
+/* Graella d'avatars més compacta només a la pre-partida */
+#waitingOverlay .avatar-pick {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+#waitingOverlay .avatar-pick-lbl {
+  font-size: clamp(11px, 2.6vmin, 15px);
+  margin-bottom: clamp(4px, 1vmin, 10px);
+}
+#waitingOverlay .avatar-options {
+  gap: clamp(4px, 1vmin, 8px) clamp(4px, 1.2vmin, 8px) !important;
+  max-width: min(320px, 92vw);
+}
+#waitingOverlay .av-opt {
+  width: clamp(32px, 8vmin, 52px) !important;
+  height: clamp(32px, 8vmin, 52px) !important;
+  border-width: 1px;
+}
+#waitingOverlay .av-opt.av-selected {
+  border-width: 2px !important;
+  box-shadow: 0 0 8px rgba(232, 171, 42, 0.45) !important;
+}
+
+@media (max-width: 640px) {
+  .waiting-faceoff {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .waiting-vs {
+    order: 2;
+    padding: 6px 0;
+  }
+  #slot-player-0 {
+    order: 1;
+  }
+  #slot-player-1 {
+    order: 3;
+  }
+}
+
+/* Pantalles baixes: encara més dens */
+@media (max-height: 720px) {
+  #waitingOverlay .waiting-faceoff-card {
+    padding: 4px 8px;
+    gap: 1px;
+  }
+  #waitingOverlay .waiting-portada {
+    max-height: clamp(24px, 5.5vmin, 40px);
+  }
+  #waitingOverlay .avatar-options {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+@media (max-height: 560px) {
+  #waitingOverlay .waiting-faceoff {
+    margin: 0;
+  }
+  #waitingOverlay .slot-photo-frame {
+    width: clamp(40px, 10vmin, 56px);
+    height: clamp(40px, 10vmin, 56px);
+  }
+  #waitingOverlay .slot-game-av {
+    width: clamp(44px, 11vmin, 64px);
+    height: clamp(44px, 11vmin, 64px);
+  }
+}
+
+/* Resum de punts al compte enrere */
 .summary-events {
   display: flex;
   flex-direction: column;
@@ -1645,46 +1917,16 @@ h1 .hi {
   font-size: 20px;
 }
 
-/* ── TURN RING PULSE when it's your turn ── */
-#myTimerRing:not(.hidden) {
-  filter: drop-shadow(0 0 6px rgba(46, 160, 67, 0.9));
-  animation: ringPulse 1.4s ease-in-out infinite;
-}
-@keyframes ringPulse {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 4px rgba(46, 160, 67, 0.7));
-  }
-  50% {
-    filter: drop-shadow(0 0 10px rgba(46, 160, 67, 1));
-  }
-}
-
-/* ── TABLE MSG (button action displayed in center) ── */
-.table-msg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 36px;
-  font-weight: 900;
-  color: var(--gold);
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  opacity: 0;
-  z-index: 30;
-}
-/* --- NUEVOS BOCADILLOS POSICIONALES --- */
-/* --- TEXTO FLOTANTE (Sin recuadros) --- */
+/* Bafarada d'acció sobre la taula */
 .table-msg-bubble {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  background: none !important; /* Sin fondo */
-  border: none !important; /* Sin bordes */
-  box-shadow: none !important; /* Sin sombras */
-  color: var(--gold, gold);
-  font-size: 38px; /* Más grande para compensar que no hay cuadro */
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--gold);
+  font-size: 38px;
   font-weight: 900;
   text-transform: uppercase;
   z-index: 1000;
@@ -1720,29 +1962,8 @@ h1 .hi {
     transform: translateX(-50%) translateY(-40px) scale(1.1);
   }
 }
-.table-msg-anim {
-  animation: tableMsgShow 2.5s ease forwards;
-}
-@keyframes tableMsgShow {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -60%) scale(0.7);
-  }
-  15% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.15);
-  }
-  40% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
 
-/* ── TURN ACTIVE ZONES ── */
+/* Zona activa del torn (noms) */
 #myZone.turn-active .player-name {
   color: var(--gold);
   animation: namePulse 1.2s ease-in-out infinite;
@@ -1761,38 +1982,10 @@ h1 .hi {
   }
 }
 
-/* ── GAME OVER OVERLAY — transparent over board ── */
-#gameOverOverlay {
-  background: rgba(0, 0, 0, 0.65) !important;
-  backdrop-filter: blur(3px) !important;
-  -webkit-backdrop-filter: blur(3px) !important;
-}
-#gameOverOverlay .overlay-card {
-  background: rgba(12, 22, 16, 0.88) !important;
-}
-
-/* ── TABLE: lighter felt ── */
-#table {
-  background: radial-gradient(
-    ellipse at 50% 40%,
-    #2d6e3a 0%,
-    #1e4d28 100%
-  ) !important;
-}
-#table::before {
-  background: none !important;
-}
-
-/* ── BAZA TEXT: EMPAT in gold ── */
-.baza-empat {
-  color: #f0b429 !important;
-  font-weight: 700;
-}
-
-/* ── REUBICACIÓN DE AVATARES (Posición final) ── */
+/* Capçalera rival (avatar + nom) */
 .rival-header {
   position: absolute !important;
-  top: 25px !important; /* Un poco más separado del borde superior */
+  top: 25px !important;
   left: 50px !important;
   display: flex;
   align-items: center;
@@ -1802,7 +1995,6 @@ h1 .hi {
 
 .my-zone-header {
   position: absolute !important;
-  /* Bajamos el avatar: si antes tenías 85px, 20px lo dejará casi pegado a la barra */
   bottom: 20px !important;
   left: 50px !important;
   display: flex;
@@ -1811,13 +2003,18 @@ h1 .hi {
   z-index: 50;
 }
 
-/* ── 6. Absence notification ── */
-.absence-notif {
+/* Barra rival desconnectat */
+.absence-bar {
   position: fixed;
   top: 56px;
   left: 0;
   right: 0;
   z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   background: rgba(218, 54, 51, 0.92);
   color: #fff;
   text-align: center;
@@ -1826,11 +2023,23 @@ h1 .hi {
   font-weight: 600;
   backdrop-filter: blur(4px);
 }
-.absence-notif.hidden {
+.absence-bar.hidden {
   display: none !important;
 }
+.absence-notif-msg {
+  line-height: 1.3;
+}
+.absence-countdown {
+  font-variant-numeric: tabular-nums;
+  min-width: 2.75em;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 15px;
+  font-weight: 700;
+}
 
-/* ── 8. Countdown in center ── */
+/* Compte enrere al centre (missatge) */
 .table-cd-msg {
   position: absolute;
   top: 50%;
@@ -1876,7 +2085,7 @@ h1 .hi {
   line-height: 1;
 }
 
-/* ── 9. Avatar styles (Versión Cuadrícula 4x4) ── */
+/* Triar avatar (sala en espera) */
 .avatar-pick {
   text-align: center;
   margin-bottom: 20px;
@@ -1887,18 +2096,18 @@ h1 .hi {
   margin-bottom: 18px;
 }
 
-/* El contenedor: Ahora es una rejilla */
+/* Graella d'opcions d'avatar */
 .avatar-options {
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
   gap: 15px 10px !important;
   justify-items: center !important;
-  max-width: 320px; /* Ajuste para que los 4 queden bien centrados en móvil */
+  max-width: 320px;
   margin: 0 auto !important;
 }
 
-/* El círculo del avatar: ¡Más grande! */
 .av-opt {
+  position: relative;
   width: 70px !important;
   height: 70px !important;
   border-radius: 50%;
@@ -1916,40 +2125,28 @@ h1 .hi {
   border-color: gold;
 }
 
-/* Importante: He visto que tu clase de selección se llama 'av-selected' */
 .av-opt.av-selected {
   border: 4px solid gold !important;
   box-shadow: 0 0 15px rgba(232, 171, 42, 0.6) !important;
   transform: scale(1.05);
 }
 
-/* Mantenemos los avatares pequeños de la mesa igual */
-.player-av-sm {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  flex-shrink: 0;
-}
-/* ── FIX 3: Avatares centrados y anillo de tiempo perfecto ── */
-
-/* 1. El contenedor principal (el que manda) */
+/* Avatar a la taula (petit) */
 .player-avatar-wrap {
   position: relative !important;
-  overflow: visible !important; /* CRUCIAL: Para que el menú no se quede dentro del círculo */
+  overflow: visible !important;
   cursor: pointer;
 }
 
-/* 2. El círculo del Avatar (El de dentro) */
 .player-av-sm {
-  width: 44px !important; /* Tamaño fijo del avatar */
+  width: 44px !important;
   height: 44px !important;
   border-radius: 50% !important;
   overflow: hidden !important;
   position: relative !important;
   z-index: 1;
-  border: 2px solid rgba(255, 255, 255, 0.1); /* Un borde fino para separar */
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .player-av-sm img {
@@ -1959,23 +2156,18 @@ h1 .hi {
   display: block !important;
 }
 
-/* 3. El Anillo de Tiempo (El de fuera) */
+/* Anell de temps (SVG) */
 .av-ring {
   position: absolute !important;
-  /* Centrado quirúrgico */
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) rotate(-90deg) !important;
-
-  /* El anillo es un poco más grande que el avatar para rodearlo */
   width: 52px !important;
   height: 52px !important;
-
   pointer-events: none !important;
   z-index: 2;
 }
 
-/* 4. Estilos del dibujo del anillo */
 .av-ring .timer-ring-bg {
   fill: none;
   stroke: rgba(255, 255, 255, 0.15);
@@ -1987,47 +2179,84 @@ h1 .hi {
   stroke: #2ea043;
   stroke-width: 3;
   stroke-linecap: round;
-  /* El dasharray depende del radio del círculo en tu HTML, lo mantenemos */
   stroke-dasharray: 119.4 119.4;
   transition:
     stroke-dasharray 0.9s linear,
     stroke 0.3s ease;
 }
 
-/* ── FIX 4: Fixed countdown (no re-animation) ── */
+/* Avatar actiu (torn) */
+.player-avatar-wrap.turn-active {
+  animation: turnWrapPulse 1s ease-in-out infinite alternate;
+}
+.player-avatar-wrap.turn-active .player-av-sm {
+  animation: turnAvGlow 1s ease-in-out infinite alternate;
+}
+@keyframes turnWrapPulse {
+  from {
+    filter: drop-shadow(0 0 2px rgba(255, 230, 150, 0.25));
+  }
+  to {
+    filter: drop-shadow(0 0 10px rgba(255, 220, 100, 0.65));
+  }
+}
+@keyframes turnAvGlow {
+  from {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.12);
+    transform: scale(1);
+  }
+  to {
+    box-shadow: 0 0 0 3px rgba(255, 214, 90, 0.45);
+    transform: scale(1.04);
+  }
+}
+
+/* Compte enrere fix damunt les cartes */
 .table-cd-fixed {
   position: absolute;
-  top: 42%;
+  top: 38%;
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
   pointer-events: none;
-  z-index: 25;
-  transition: opacity 0.3s;
+  z-index: 280;
+  transition: opacity 0.25s ease;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
 }
 .table-cd-fixed.hidden {
   opacity: 0;
   pointer-events: none;
 }
 .table-cd-fixed .cd-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 1px;
-  margin-bottom: 4px;
+  font-size: clamp(14px, 3.6vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff8dc;
+  margin-bottom: 6px;
+  text-shadow:
+    0 1px 0 #000,
+    0 2px 8px rgba(0, 0, 0, 0.95),
+    0 0 20px rgba(0, 0, 0, 0.8);
 }
 .table-cd-fixed .cd-number {
-  font-size: 80px;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: clamp(64px, 16vw, 108px);
   font-weight: 900;
-  color: var(--gold);
-  text-shadow: 0 0 40px rgba(232, 171, 42, 0.9);
   line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 2px 0 #000,
+    0 4px 0 rgba(0, 0, 0, 0.55),
+    0 0 4px #000,
+    0 8px 28px rgba(0, 0, 0, 0.9),
+    0 0 40px rgba(255, 214, 90, 0.35);
 }
 
-/* ── Fix avatar options: remove onclick attr warning ── */
-.av-opt {
-  cursor: pointer;
-}
-/* Avatar taken by rival */
+/* Avatar ocupat pel rival */
 .av-opt.av-taken {
   opacity: 0.35;
   filter: grayscale(0.8);
@@ -2045,13 +2274,12 @@ h1 .hi {
   color: rgba(218, 54, 51, 0.9);
   font-weight: 900;
 }
-.av-opt {
-  position: relative;
-}
 
-/* -- Room list in lobby -- */
+/* Llista de sales al lobby */
 .lobby-rooms {
   width: 100%;
+  position: relative;
+  min-height: 120px;
 }
 .rl-title {
   font-size: 11px;
@@ -2066,45 +2294,65 @@ h1 .hi {
   gap: 6px;
   min-height: 24px;
 }
-.rl-loading,
 .rl-empty {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   text-align: center;
   padding: 6px;
 }
-.rl-row {
+.rl-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 8px 12px;
-  gap: 10px;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
-.rl-info {
+.rl-card-left {
+  flex-shrink: 0;
+}
+.rl-creator-photo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+}
+.rl-card-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
-.rl-code {
-  font-size: 14px;
+.rl-creator-line {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.rl-creator-nick {
   font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 2px;
+  color: #fff;
 }
-.rl-host {
+.rl-meta-line {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.58);
+}
+.rl-estado {
+  font-weight: 600;
+  color: rgba(200, 220, 200, 0.95);
 }
 .rl-join {
   padding: 6px 14px !important;
   font-size: 13px !important;
   flex-shrink: 0;
 }
+.rl-join.rl-join-disabled {
+  pointer-events: auto;
+}
 
-/* -- Game over overlay: very transparent so cards show through -- */
+/* Overlay fi de partida (transparent) */
 #gameOverOverlay {
   background: rgba(0, 0, 0, 0.25) !important;
   backdrop-filter: none !important;
@@ -2116,13 +2364,12 @@ h1 .hi {
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7) !important;
 }
-/* --- Nueva Mesa de Juego (Estilo Enfrentado) --- */
-
+/* Graella de bazes al centre */
 .trick-grid {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px; /* Espacio entre la baza 1, 2 y 3 */
+  gap: 10px;
   min-height: 250px;
   width: 100%;
 }
@@ -2137,7 +2384,7 @@ h1 .hi {
   transition: background 0.3s;
 }
 
-/* Resaltado suave si la baza es empate */
+/* Baza en empat */
 .trick-draw {
   background: rgba(255, 215, 0, 0.05);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
@@ -2145,38 +2392,16 @@ h1 .hi {
 
 .trick-cell-rival,
 .trick-cell-mine {
-  /* Mantengo tus medidas y ajustes */
   width: 82px;
   height: 123px;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-
-  /* --- EFECTO 3D (LO NUEVO) --- */
-  /* El perspective crea la sensación de profundidad */
-  perspective: 500px;
+  perspective: 400px;
 }
 
-/* Aplicamos la inclinación a la carta que esté dentro de la celda */
-.trick-cell-rival img,
-.trick-cell-mine img,
-.trick-cell-rival .playing-card,
-.trick-cell-mine .playing-card {
-  /* rotateX(25deg) hace que la parte de arriba se aleje de ti */
-  /* scale(1.05) la agranda un pelín para compensar que al inclinarla parece más pequeña */
-  transform: rotateX(25deg) scale(1.05);
-
-  /* Una sombra suave hacia abajo para que parezca que "flota" un milímetro sobre el tapete */
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-
-  border-radius: 6px;
-  transition: transform 0.3s ease;
-}
-
-/* --- TAMAÑO PARA PC (Equilibrado) --- */
 @media (min-width: 1024px) {
-  /* Bajamos de 130px a 105px para que no se dispare el tamaño */
   .playing-card,
   .trick-cell-rival,
   .trick-cell-mine {
@@ -2185,37 +2410,21 @@ h1 .hi {
     height: auto;
   }
 }
-/* Contenedores de la mesa */
-.trick-cell-rival,
-.trick-cell-mine {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  /* El 'perspective' es clave para el 3D */
-  perspective: 400px;
-}
 
-/* LA REGLA MAESTRA: Cualquier carta o imagen dentro de la mesa */
+/* Cartes dins les cel·les de baza (3D) */
 .trick-cell-rival .playing-card,
 .trick-cell-mine .playing-card,
 .trick-cell-rival img,
 .trick-cell-mine img {
-  /* Forzamos la inclinación inmediatamente */
   transform: rotateX(25deg) !important;
-
-  /* Sombra para que parezca apoyada */
   box-shadow: 0 18px 25px rgba(0, 0, 0, 0.4) !important;
-
-  /* Aseguramos que ocupe todo el hueco */
   width: 100% !important;
   height: 100% !important;
   margin: 0 !important;
-
   border-radius: 3px;
 }
 
-/* Separador invisible o línea sutil entre cartas */
+/* Separador entre carta rival i pròpia */
 .trick-row-sep {
   height: 2px;
   width: 40px;
@@ -2223,16 +2432,14 @@ h1 .hi {
   border-radius: 2px;
 }
 
-/* Borde dorado para la carta ganadora */
+/* Carta guanyadora de la baza */
 .trick-winner {
   outline: 2px solid #ffd700;
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
   border-radius: 2px;
 }
 
-/* --- 1. ARREGLO GLOBAL PARA AVATARES --- */
-/* (Esto hace que las fotos de los avatares se vean bien) */
-.player-av img,
+/* Imatge dins opció d'avatar (triar) */
 .av-opt img {
   width: 100% !important;
   height: 100% !important;
@@ -2241,7 +2448,7 @@ h1 .hi {
   display: block;
 }
 
-/* ══ BOTONES DE ACCIÓN (base, todas las pantallas) ══════════════════════════ */
+/* Botons d'acció (base) */
 .abtn {
   font-family: "Outfit", sans-serif;
   font-size: 17px;
@@ -2261,7 +2468,6 @@ h1 .hi {
     0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* Colores sólidos por tipo de botón (PC y móvil) */
 .abtn-green {
   background: #1e7a34;
   border-color: #4caf65;
@@ -2278,9 +2484,8 @@ h1 .hi {
   color: #ffe8e8;
 }
 
-/* ══ AJUSTES EXCLUSIVOS PARA MÓVIL ══════════════════════════════════════════ */
+/* Panell d'accions en mòbil */
 @media (max-width: 768px) {
-  /* Contenedor de botones: fila compacta */
   #actionBtns {
     display: flex !important;
     flex-wrap: nowrap !important;
@@ -2290,7 +2495,6 @@ h1 .hi {
     padding: 0 4px !important;
   }
 
-  /* Botones: tamaño reducido para pantalla pequeña */
   .abtn {
     flex: 1 1 0;
     height: 40px;
@@ -2303,7 +2507,6 @@ h1 .hi {
     justify-content: center;
   }
 
-  /* Texto de estado y oferta: sin fondo, flota sobre la mesa */
   #statusMsg,
   #offerMsg {
     font-size: 11px !important;
@@ -2313,14 +2516,13 @@ h1 .hi {
     width: 100% !important;
   }
 
-  /* Ocultar panel de acciones en el lobby */
   #screenLobby #actionPanel,
   .hidden {
     display: none !important;
   }
 }
 
-/* Ocultar el panel de acciones cuando el juego no está activo */
+/* Amagar panell d'accions fora de partida */
 #screenGame.hidden ~ #actionPanel,
 #screenLobby:not(.hidden) ~ * #actionPanel {
   display: none !important;
@@ -2329,12 +2531,6 @@ h1 .hi {
   display: none !important;
 }
 
-.lobby-rooms {
-  position: relative;
-  min-height: 120px;
-}
-
-/* Los hijos vuelven a flujo normal (NO fixed) */
 .action-btns,
 .response-area {
   position: static !important;
@@ -2350,24 +2546,17 @@ h1 .hi {
 }
 
 .action-btn {
-  /* Cambio clave: flex-grow a 0 para que no se estiren innecesariamente */
   flex: 0 1 auto;
-
-  /* Un ancho mínimo para que no se vean ridículos, pero sin forzar el máximo */
   min-width: 80px;
   max-width: 150px;
-
   font-size: clamp(12px, 2.5vw, 15px);
   padding: 10px 12px;
   white-space: nowrap;
-  border-radius: 16px; /* Por si quieres que se vean más modernos */
-
-  /* Si el texto no cabe, que ponga puntos suspensivos */
+  border-radius: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* En móviles muy pequeños, bajamos un poco el min-width */
 @media (max-width: 400px) {
   .action-btn {
     min-width: 60px;
@@ -2375,7 +2564,7 @@ h1 .hi {
     gap: 4px;
   }
 }
-/* Animación de los puntos suspensivos */
+/* Punts suspensius animats (espera) */
 .dots::after {
   content: "";
   animation: dots-anim 1.5s steps(4, end) infinite;
@@ -2398,25 +2587,35 @@ h1 .hi {
   }
 }
 
-/* Estilo para el botón de volver */
-/* El botón de volver, un poco más separado */
+/* Botó tornar (sala en espera) */
 .btn-volver {
-  margin-top: 30px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #ccc;
-  padding: 5px 15px;
-  border-radius: 4px;
+  display: block;
+  margin: 14px auto 0;
+  width: fit-content;
+  max-width: min(240px, 100%);
+  box-sizing: border-box;
+  font-family: "Outfit", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
   cursor: pointer;
-  font-size: 0.85em;
-  transition: all 0.2s;
+  background: var(--gold);
+  color: #0b1512;
+  transition:
+    opacity 0.15s,
+    transform 0.07s;
 }
 
 .btn-volver:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  opacity: 0.9;
 }
-/* Estilo para cuando el botón de inicio está bloqueado */
+
+.btn-volver:active {
+  transform: translateY(1px);
+}
+/* Botó iniciar partida desactivat */
 #startBtn:disabled {
   background-color: #666 !important;
   cursor: not-allowed;
@@ -2424,17 +2623,17 @@ h1 .hi {
   box-shadow: none !important;
 }
 
-/* Estado bloqueado del avatar */
+/* Avatar gelat (espera) */
 .av-frozen {
   filter: grayscale(0.8);
   opacity: 0.7;
   cursor: not-allowed !important;
 }
-/* ── CONFIG BUTTON ── */
+/* Botó configuració */
 .config-btn {
   position: fixed;
   right: 12px;
-  top: 310px; /* ajusta si el registro ocupa más o menos */
+  top: 310px;
   z-index: 40;
   font-size: 18px;
   cursor: pointer;
@@ -2450,7 +2649,7 @@ h1 .hi {
   transform: rotate(45deg);
 }
 
-/* ── CONFIG PANEL ── */
+/* Panell de configuració */
 .config-panel {
   position: fixed;
   right: 12px;
@@ -2539,8 +2738,7 @@ h1 .hi {
   color: var(--gold);
 }
 
-/* ── TABLE BACKGROUNDS ── */
-/* ── MESA: Fondo 2 (Color Sòlid - Ja funciona) ── */
+/* Fons de taula: blau */
 #table.bg-bg2 {
   background: radial-gradient(
     ellipse at 50% 40%,
@@ -2549,15 +2747,13 @@ h1 .hi {
   ) !important;
 }
 
-/* ── MESA: Fondo 3 (Imatge de BAR amb Blur - El que fallava) ── */
-/* ── MESA: Fondo 3 (Bar con desenfoque total) ── */
+/* Fons de taula: bar (imatge + blur) */
 #table.bg-bg3 {
   background: transparent !important;
 }
 
 #table.bg-bg3::after {
   content: "";
-  /* FIXED hace que el fondo ocupe TODA la ventana del navegador */
   position: fixed;
   top: 0;
   left: 0;
@@ -2570,21 +2766,17 @@ h1 .hi {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-
-  /* --- AJUSTES SOLICITADOS --- */
-  filter: blur(2px); /* Menos borroso (antes era 12px) */
-  transform: scale(1.05); /* Un pelín menos de escala al haber menos blur */
-
-  z-index: -1; /* Lo enviamos al fondo de todo */
+  filter: blur(2px);
+  transform: scale(1.05);
+  z-index: -1;
   pointer-events: none;
 }
 
-/* Aseguramos que el contenido del juego sea visible y cliqueable */
 #table.bg-bg3 > * {
   position: relative;
   z-index: 1;
 }
-/* ── BUTTON SIZE: large mode ── */
+/* Botons grans (preferència) */
 body.btn-large .abtn {
   font-size: 20px !important;
   padding: 16px 26px !important;
@@ -2593,34 +2785,35 @@ body.btn-large .abtn {
 body.btn-large #actionBtns {
   height: 56px !important;
 }
-@keyframes ovIn {
+
+/* Menú de frases (translateX durant animació) */
+@keyframes phraseMenuIn {
   0% {
     opacity: 0;
-    transform: translateY(-10px) scale(0.95);
+    transform: translateX(-50%) translateY(-10px) scale(0.95);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
-/* ── MANO DEL JUGADOR: efecto abanico ── */
+/* Mà del jugador: abanico 3 cartes */
 .my-card-wrap:nth-child(1) {
   transform: rotate(-8deg) translateY(6px);
   transform-origin: bottom center;
-  z-index: 1; /* debajo */
+  z-index: 1;
 }
 .my-card-wrap:nth-child(2) {
   transform: rotate(0deg) translateY(0px);
   transform-origin: bottom center;
-  z-index: 2; /* en medio */
+  z-index: 2;
 }
 .my-card-wrap:nth-child(3) {
   transform: rotate(8deg) translateY(6px);
   transform-origin: bottom center;
-  z-index: 3; /* encima */
+  z-index: 3;
 }
 
-/* Hover: se levanta y endereza manteniendo el z-index alto */
 .my-card-wrap:nth-child(1):hover {
   transform: rotate(-4deg) translateY(-16px) scale(1.05);
   z-index: 10;
@@ -2634,26 +2827,16 @@ body.btn-large #actionBtns {
   z-index: 10;
 }
 
-/* Transición suave */
-.my-card-wrap {
-  transition:
-    transform 0.2s ease,
-    z-index 0s;
-}
-/* ── REPOSICIONAMIENTO CON 2 CARTAS ── */
-
-/* Cuando solo hay 2 cartas, la primera es también :nth-child(1) 
-   pero necesitamos sobrescribir los ángulos del abanico de 3 */
+/* Dos cartes a la mà */
 .my-card-wrap:nth-child(1):nth-last-child(2) {
   transform: rotate(-5deg) translateY(4px);
   z-index: 1;
 }
 .my-card-wrap:nth-child(2):nth-last-child(1):not(:first-child) {
   transform: rotate(5deg) translateY(4px);
-  z-index: 2; /* encima */
+  z-index: 2;
 }
 
-/* Hover con 2 cartas */
 .my-card-wrap:nth-child(1):nth-last-child(2):hover {
   transform: rotate(-2deg) translateY(-16px) scale(1.05);
   z-index: 10;
@@ -2663,7 +2846,7 @@ body.btn-large #actionBtns {
   z-index: 10;
 }
 
-/* ── CON 1 CARTA: centrada y recta ── */
+/* Una sola carta */
 .my-card-wrap:only-child {
   transform: rotate(0deg) translateY(0px);
 }
@@ -2671,11 +2854,13 @@ body.btn-large #actionBtns {
   transform: translateY(-16px) scale(1.05);
   z-index: 10;
 }
-/* ── MENÚ DE FRASES (lista simple) ── */
+/* Menú de frases ràpides (fixed: evita retall per overflow:hidden de #table) */
 .phrase-menu {
-  position: absolute;
-  bottom: 56px; /* encima del avatar */
-  left: 0;
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: max(108px, calc(84px + env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
   z-index: 1000;
   background: rgba(8, 18, 12, 0.97);
   border: 1px solid var(--border-hi);
@@ -2684,9 +2869,15 @@ body.btn-large #actionBtns {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: min(300px, calc(100vw - 48px));
+  width: min(380px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(52vh, 380px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
-  animation: ovIn 0.15s ease both;
+  animation: phraseMenuIn 0.15s ease both;
 }
 .phrase-menu.hidden {
   display: none !important;
@@ -2709,11 +2900,12 @@ body.btn-large #actionBtns {
   color: var(--gold);
 }
 
-/* ── BOCADILLO ── */
+/* Bafarada de xat */
 .speech-bubble {
   position: absolute;
   bottom: 56px;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: white;
   color: #222;
   padding: 8px 14px;
@@ -2723,31 +2915,38 @@ body.btn-large #actionBtns {
   z-index: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   pointer-events: none;
-  max-width: min(300px, calc(100vw - 48px));
+  width: min(380px, calc(100vw - 16px));
+  max-width: none;
+  box-sizing: border-box;
   white-space: normal;
   line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   animation: popIn 0.25s ease both;
 }
 .speech-bubble::after {
   content: "";
   position: absolute;
   bottom: -7px;
-  left: 16px;
+  left: 50%;
+  margin-left: -7px;
   border-width: 7px 7px 0;
   border-style: solid;
   border-color: white transparent transparent;
 }
-/* Rival: sota l'avatar (cap al centre de la taula), evita retall al marge superior */
+/* Bafarada rival sota l'avatar */
 .speech-bubble.rival-bubble {
   top: calc(100% + 10px);
   bottom: auto;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   animation: popInRival 0.25s ease both;
 }
 .speech-bubble.rival-bubble::after {
   top: -7px;
   bottom: auto;
-  left: 18px;
+  left: 50%;
+  margin-left: -7px;
   border-width: 0 7px 7px 7px;
   border-color: transparent transparent white transparent;
 }
@@ -2757,26 +2956,26 @@ body.btn-large #actionBtns {
 
 @keyframes popIn {
   from {
-    transform: scale(0.8) translateY(8px);
+    transform: translateX(-50%) scale(0.8) translateY(8px);
     opacity: 0;
   }
   to {
-    transform: scale(1) translateY(0);
+    transform: translateX(-50%) scale(1) translateY(0);
     opacity: 1;
   }
 }
 @keyframes popInRival {
   from {
-    transform: scale(0.88) translateY(-8px);
+    transform: translateX(-50%) scale(0.88) translateY(-8px);
     opacity: 0;
   }
   to {
-    transform: scale(1) translateY(0);
+    transform: translateX(-50%) scale(1) translateY(0);
     opacity: 1;
   }
 }
 
-/* Avatar con cursor pointer cuando se puede chatear */
+/* Clic al meu avatar (xat / frases) */
 #myAvatarContainer {
   cursor: pointer;
 }

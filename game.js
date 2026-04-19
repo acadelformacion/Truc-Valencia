@@ -1,7 +1,11 @@
 // --- Truc Valencià . game.js (entrada) --------------------------------------
 // Únic punt de veritat per a la transició login ↔ lobby: `onAuthStateChanged`.
-import { auth, onAuthStateChanged } from "./firebase.js";
-import { initApp, tryReconnectFromLocalStorage } from "./ui.js";
+import { auth, onAuthStateChanged, resetSession } from "./firebase.js";
+import {
+  initApp,
+  tryReconnectFromLocalStorage,
+  detachRoomListeners,
+} from "./ui.js";
 
 const WINS_LS_PREFIX = "truc_wins_";
 /** Sufix numèric estable per sessió (001–999) per a usuaris anònims de Firebase. */
@@ -41,12 +45,17 @@ function updateLobbyProfileHeader(user) {
   if (nameInput) nameInput.value = name;
 
   if (photoEl) {
+    const guestAvatar = "Media/Images/Others/avatar-convidat.webp";
     const fallbackSvg =
       "data:image/svg+xml," +
       encodeURIComponent(
         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="17" r="9" fill="rgba(255,255,255,.4)"/><path d="M6 46c2.5-11 13-17 18-17s15.5 6 18 17" fill="rgba(255,255,255,.22)"/></svg>`,
       );
-    if (user.photoURL) {
+    if (user.isAnonymous) {
+      photoEl.src = guestAvatar;
+      photoEl.alt = name;
+      photoEl.classList.remove("is-placeholder");
+    } else if (user.photoURL) {
       photoEl.src = user.photoURL;
       photoEl.alt = name;
       photoEl.classList.remove("is-placeholder");
@@ -99,6 +108,8 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     await applySignedInUi(user);
   } else {
+    detachRoomListeners();
+    resetSession();
     applySignedOutUi();
   }
 });

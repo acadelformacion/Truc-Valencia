@@ -40,7 +40,17 @@ export const session = {
   roomRef: null,
   roomCode: null,
   mySeat: null,
+  /** "public" | "private" | null (fora de sala) */
+  roomVisibility: null,
 };
+
+/** Estat «fora de sala» després de logout o tancament net de listeners. */
+export function resetSession() {
+  session.roomRef = null;
+  session.roomCode = null;
+  session.mySeat = null;
+  session.roomVisibility = null;
+}
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 

@@ -9,6 +9,7 @@ import {
   db,
   auth,
   session,
+  resetSession,
   ref,
   get,
   set,
@@ -60,44 +61,6 @@ Object.defineProperty(ui, "locked", {
   },
 });
 
-window.activarChatRival = function () {
-  if (!session.roomCode || session.mySeat === null) return;
-
-  const rivalSeat = session.mySeat === 0 ? 1 : 0;
-  const rivalChatRef = ref(
-    db,
-    `rooms/${session.roomCode}/phrases/${rivalSeat}`,
-  );
-
-  let inicial = true;
-  onValue(rivalChatRef, (snap) => {
-    const data = snap.val();
-    if (data && data.msg) {
-      if (inicial) {
-        inicial = false;
-        return;
-      }
-      if (window.showBubble) {
-        window.showBubble("rivalBubble", data.msg);
-      }
-    }
-  });
-};
-
-// 3. RECIBIR DEL RIVAL
-// Esta función debes llamarla cuando el servidor te avise de que el rival habló
-window.recibirFraseRival = function (text) {
-  window.showBubble("rivalBubble", text);
-};
-
-window.showBubble = function (id, text) {
-  const bubble = document.getElementById(id);
-  if (!bubble) return;
-  bubble.textContent = text;
-  bubble.classList.remove("hidden");
-  setTimeout(() => bubble.classList.add("hidden"), 3500);
-};
-
 // --- Key helpers --------------------------------------------------------------
 const K = (n) => `_${n}`; // seat: 0->"_0"
 const PK = (n) => `p${n}`; // played key: 0->"p0"
@@ -126,18 +89,41 @@ const getPlayed = (h, seat) => {
   const v = h?.played?.[PK(seat)];
   return v && v !== EMPTY_CARD ? v : null;
 };
-const setPlayed = (h, seat, card) => {
-  if (!h.played) h.played = { [PK(0)]: EMPTY_CARD, [PK(1)]: EMPTY_CARD };
-  h.played[PK(seat)] = card || EMPTY_CARD;
-};
-const resetPlayed = (h) => {
-  h.played = { [PK(0)]: EMPTY_CARD, [PK(1)]: EMPTY_CARD };
-};
 const alreadyPlayed = (h, seat) => getPlayed(h, seat) !== null;
 const bothPlayed = (h) => alreadyPlayed(h, 0) && alreadyPlayed(h, 1);
 
 const LS = { room: "truc_room", seat: "truc_seat", name: "truc_name" };
 const ANON_NICK_STORAGE_PREFIX = "truc_anon_nick_";
+const GUEST_LOBBY_AVATAR = "Media/Images/Others/avatar-convidat.webp";
+
+/** Foto per a llista de sales / perfil de jugador a Firebase */
+function lobbyPhotoForPlayer(p) {
+  if (!p) return GUEST_LOBBY_AVATAR;
+  if (p.photoURL) return p.photoURL;
+  if (p.guest) return GUEST_LOBBY_AVATAR;
+  return GUEST_LOBBY_AVATAR;
+}
+
+function authPlayerExtras() {
+  const u = auth.currentUser;
+  if (!u) return {};
+  if (u.isAnonymous) return { guest: true };
+  const o = {};
+  if (u.photoURL) o.photoURL = u.photoURL;
+  return o;
+}
+
+function roomListEstadoLabel(st) {
+  if (!st) return "En preparació";
+  const s0 = real(st.scores?.[K(0)] ?? OFFSET);
+  const s1 = real(st.scores?.[K(1)] ?? OFFSET);
+  if (st.status === "game_over" || s0 >= 12 || s1 >= 12) return "Finalitzada";
+  if (st.status === "waiting" && real(st.handNumber ?? OFFSET) === 0)
+    return "En preparació";
+  return "En partida";
+}
+
+let _pendingCreateVisibility = "public";
 const INACT_MS = 60 * 60 * 1000;
 const TURN_SECS = 30;
 const OFFSET = 10; // scores/trickWins stored +10
@@ -205,6 +191,8 @@ let unsubGame = null,
   unsubChat = null;
 let inactTimer = null,
   betweenTimer = null,
+  /** Evita reiniciar l'overlay entre mans quan `betweenTimer` ja és null però encara no ha arribat `hand` després del compte enrere. */
+  _betweenCountdownLatch = false,
   turnTimer = null,
   /** Arm del torn: cal cancel·lar-lo junt amb l'interval (si no, es pileguen intervals). */
   turnTimerArm = null;
@@ -236,35 +224,15 @@ const esc = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const real = (n) => Number(n || OFFSET) - OFFSET; // decode stored value
 
-function cardLabel(c) {
-  const { num, suit } = Logica.parseCard(c);
-  return `${num} de ${SUITS[suit]?.label}`;
-}
 function pName(st, seat) {
   return st?.players?.[K(seat)]?.name || `Jugador ${seat}`;
 }
-function bothReady(st) {
+/** Els dos seients ocupats (no confondre amb state.ready de Firebase). */
+function bothPlayersJoined(st) {
   return !!(st?.players?.[K(0)] && st?.players?.[K(1)]);
 }
 function getScore(st, seat) {
   return real(st?.scores?.[K(seat)]);
-}
-function addScore(st, seat, pts) {
-  if (!st.scores) st.scores = { [K(0)]: OFFSET, [K(1)]: OFFSET };
-  st.scores[K(seat)] = Number(st.scores[K(seat)] || OFFSET) + pts;
-}
-function getTW(h, seat) {
-  return real(h?.trickWins?.[K(seat)]);
-}
-function addTW(h, seat) {
-  h.trickWins[K(seat)] = Number(h.trickWins[K(seat)] || OFFSET) + 1;
-}
-function getSA(h, seat) {
-  return real(h?.scoreAwards?.[K(seat)]);
-}
-// Ahora, si no le decimos nada suma 1, pero si le pasamos un 2, sumará 2.
-function addSA(h, seat, pts = 1) {
-  h.scoreAwards[K(seat)] = Number(h.scoreAwards[K(seat)] || OFFSET) + pts;
 }
 function pushLog(st, text) {
   st.logs = st.logs || [];
@@ -349,7 +317,8 @@ function initGoogleSignInButton() {
         theme: "outline",
         size: "large",
         text: "signin_with",
-        shape: "rectangular",
+        shape: "pill",
+        width: 340,
         logo_alignment: "left",
       });
     }
@@ -436,50 +405,40 @@ function stopTurnTimer() {
   }
   clearInterval(turnTimer);
   turnTimer = null;
-  const f = $("turnTimerFill");
-  if (f) {
-    f.style.transition = "none";
-    f.style.width = "0%";
-    f.classList.remove("urgent");
-  }
+  const myWrap = $("myAvatarContainer");
+  const rivWrap = $("rivalAvatarContainer");
+  if (myWrap) myWrap.classList.remove("turn-active");
+  if (rivWrap) rivWrap.classList.remove("turn-active");
   setRing("myTimerArc", "myTimerRing", 0, "my");
   setRing("rivalTimerArc", "rivalTimerRing", 0, "rival");
 }
 function startTurnTimer(isMyTurn, state) {
   stopTurnTimer();
-  const f = $("turnTimerFill");
   let rem = TURN_SECS;
-  // Show ring on the active player
+  const myWrap = $("myAvatarContainer");
+  const rivWrap = $("rivalAvatarContainer");
   if (isMyTurn) {
-    if (f) {
-      f.style.transition = "none";
-      f.style.width = "100%";
-    }
+    if (myWrap) myWrap.classList.add("turn-active");
+    if (rivWrap) rivWrap.classList.remove("turn-active");
     setRing("myTimerArc", "myTimerRing", 100, "my");
     setRing("rivalTimerArc", "rivalTimerRing", 0, "rival");
   } else {
-    if (f) {
-      f.style.width = "0%";
-    }
+    if (rivWrap) rivWrap.classList.add("turn-active");
+    if (myWrap) myWrap.classList.remove("turn-active");
     setRing("myTimerArc", "myTimerRing", 0, "my");
     setRing("rivalTimerArc", "rivalTimerRing", 100, "rival");
   }
   turnTimerArm = setTimeout(() => {
     turnTimerArm = null;
-    if (f && isMyTurn) f.style.transition = "width 1s linear";
     turnTimer = setInterval(() => {
       rem--;
       const pct = Math.max(0, (rem / TURN_SECS) * 100);
       if (isMyTurn) {
-        if (f) f.style.width = pct + "%";
-        if (rem <= 10) {
-          if (f) f.classList.add("urgent");
-        }
         setRing("myTimerArc", "myTimerRing", pct, "my");
       } else {
         setRing("rivalTimerArc", "rivalTimerRing", pct, "rival");
       }
-      if (rem <= 5) sndTick();
+      if (rem >= 1 && rem <= 5) sndTick();
       if (rem <= 0) {
         stopTurnTimer();
         if (isMyTurn) timeoutTurn();
@@ -488,7 +447,7 @@ function startTurnTimer(isMyTurn, state) {
   }, 50);
 }
 function stopBetween() {
-  clearInterval(betweenTimer);
+  if (betweenTimer != null) clearTimeout(betweenTimer);
   betweenTimer = null;
   $("countdownOverlay").classList.add("hidden");
 }
@@ -508,35 +467,37 @@ function _showCountdownMsg(text) {
 }
 function startBetween(summaryHtml) {
   stopBetween();
-  // Show summary in the overlay (small card at bottom)
   const ov = $("countdownOverlay"),
-    lbl = $("countdownLabel"),
-    num = $("countdownNum");
+    lbl = $("countdownLabel");
   if (lbl && summaryHtml) {
     lbl.innerHTML = summaryHtml;
   }
-  num.textContent = "";
   ov.classList.remove("hidden");
-  // Countdown in center of table, like a trucar/envit message
   let n = 5;
-  // Create persistent countdown element (doesn't re-animate each second)
   let cdEl = $("tableCdEl");
   if (!cdEl) {
     cdEl = document.createElement("div");
     cdEl.id = "tableCdEl";
     cdEl.className = "table-cd-fixed";
+    cdEl.setAttribute("aria-live", "assertive");
     const cz = document.getElementById("centerZone");
     if (cz) cz.appendChild(cdEl);
   }
+  cdEl.classList.add("hidden");
+  cdEl.innerHTML = "";
   function tick() {
     if (n < 0) {
+      _betweenCountdownLatch = true;
       cdEl.classList.add("hidden");
+      cdEl.innerHTML = "";
       stopBetween();
-      if (session.mySeat === 0) dealHand();
+      if (session.mySeat === 0) {
+        dealHand().catch(() => {});
+      }
       return;
     }
     cdEl.classList.remove("hidden");
-    cdEl.innerHTML = `<div class="cd-subtitle">Següent mà en...</div><div class="cd-number">${n}</div>`;
+    cdEl.innerHTML = `<div class="cd-subtitle">Següent mà en…</div><div class="cd-number">${n}</div>`;
     if (n < 5) sndTick();
     n--;
     betweenTimer = setTimeout(tick, 1000);
@@ -727,7 +688,8 @@ function buildScoreSummary(state) {
 
 function renderRivalCards(handObj) {
   const z = $("rivalCards");
-  z.innerHTML = "";
+  if (!z) return;
+  z.replaceChildren();
   const cards = fromHObj(handObj);
   const n = cards.length;
   // Mostrar siempre el numero real de cartas restantes del rival (boca abajo)
@@ -748,8 +710,9 @@ function renderRivalCards(handObj) {
 function renderMyCards(state) {
   const h = state.hand,
     z = $("myCards");
+  if (!z) return;
   if (!h) {
-    z.innerHTML = "";
+    z.replaceChildren();
     return;
   }
   const myCards = fromHObj(h.hands?.[K(session.mySeat)]);
@@ -779,7 +742,7 @@ function renderMyCards(state) {
   if (handsKey === _prevHandsKey && z.children.length === myCards.length)
     return;
   _prevHandsKey = handsKey;
-  z.innerHTML = "";
+  z.replaceChildren();
 
   myCards.forEach((card) => {
     const wrap = document.createElement("div");
@@ -807,7 +770,7 @@ function renderMyCards(state) {
 function _renderTrickGrid(allTricks, curP0, curP1) {
   const grid = $("trickGrid");
   if (!grid) return;
-  grid.innerHTML = "";
+  grid.replaceChildren();
 
   const me = session.mySeat,
     rival = other(session.mySeat);
@@ -891,9 +854,15 @@ function renderTrick(state) {
   const info = $("centerInfo");
 
   if (!h) {
+    if (
+      _lastCompletedTricks &&
+      (betweenTimer != null || _betweenCountdownLatch)
+    ) {
+      return;
+    }
     const grid = $("trickGrid");
-    if (grid) grid.innerHTML = "";
-    if (info) info.innerHTML = "";
+    if (grid) grid.replaceChildren();
+    if (info) info.replaceChildren();
     return;
   }
   const allT = h.allTricks || [];
@@ -906,21 +875,24 @@ function renderTrick(state) {
     _renderTrickGrid(allT, p0, p1);
   }
 
-  // --- Recuperamos tu historial de puntitos ---
-  info.innerHTML = "";
-  const hist = h.trickHistory || [];
-  if (hist.length) {
-    const dots = document.createElement("div");
-    dots.className = "trick-history-dots";
-    hist.forEach((t) => {
-      const d = document.createElement("div");
-      d.className = "trick-dot";
-      if (t.winner === 99 || t.winner === null) d.classList.add("draw");
-      else if (t.winner === session.mySeat) d.classList.add("won");
-      else d.classList.add("lost");
-      dots.appendChild(d);
-    });
-    info.appendChild(dots);
+  // Historial de bazas: replaceChildren agrupa lectura/escriptura i evita buidar amb innerHTML.
+  if (info) {
+    const hist = h.trickHistory || [];
+    if (hist.length) {
+      const dots = document.createElement("div");
+      dots.className = "trick-history-dots";
+      hist.forEach((t) => {
+        const d = document.createElement("div");
+        d.className = "trick-dot";
+        if (t.winner === 99 || t.winner === null) d.classList.add("draw");
+        else if (t.winner === session.mySeat) d.classList.add("won");
+        else d.classList.add("lost");
+        dots.appendChild(d);
+      });
+      info.replaceChildren(dots);
+    } else {
+      info.replaceChildren();
+    }
   }
 }
 function renderActions(state) {
@@ -939,10 +911,6 @@ function renderActions(state) {
     return;
   }
   const h = state.hand;
-  const eB = $("envitBtn"),
-    tB = $("trucBtn"),
-    mB = $("mazoBtn"),
-    fB = $("faltaBtn");
   const ra = $("responseArea"),
     om = $("offerMsg");
 
@@ -972,6 +940,8 @@ function renderActions(state) {
     norm = h.mode === "normal",
     envDone = h.envit.state !== "none";
   const played = alreadyPlayed(h, session.mySeat);
+  // `tricksDone` cal al bloc de missatges d'estat; abans només existia dins `else if (myT && norm)` i podia causar ReferenceError en mòduls estrictes.
+  const tricksDone = (h.trickHistory || []).length;
 
   const noTricksPlayed = (h.trickHistory || []).length === 0;
   const iHaventPlayed = !alreadyPlayed(h, session.mySeat);
@@ -1074,7 +1044,6 @@ function renderActions(state) {
   } else if (myT && norm) {
     // Jugada consecutiva obligatoria: gané la baza anterior y debo liderar la siguiente
     // En este caso no se permite ninguna acción, solo tirar carta
-    const tricksDone = (h.trickHistory || []).length;
     const lastTrick = tricksDone > 0 ? h.trickHistory[tricksDone - 1] : null;
     const winnerWasResponder =
       lastTrick &&
@@ -1210,7 +1179,10 @@ async function animateHUDPoints(id, targetValue, hudIdx) {
 }
 
 function renderHUD(state) {
-  $("hudRoom").textContent = `Sala ${session.roomCode || "-"}`;
+  const hideCode = session.roomVisibility === "public";
+  $("hudRoom").textContent = hideCode
+    ? "Sala pública"
+    : `Sala ${session.roomCode || "-"}`;
   $("hudSeat").textContent = pName(state, session.mySeat);
 
   const sMy = getScore(state, session.mySeat);
@@ -1243,16 +1215,19 @@ function renderHUD(state) {
 
 function renderLog(state) {
   const a = $("logArea");
-  a.innerHTML = "";
+  if (!a) return;
   const p0 = pName(state, 0),
     p1 = pName(state, 1);
+  const frag = document.createDocumentFragment();
   (state.logs || []).slice(0, 15).forEach((item) => {
     const d = document.createElement("div");
     d.className = "log-entry";
     let txt = (item.text || "").replace(/\bJ0\b/g, p0).replace(/\bJ1\b/g, p1);
     d.textContent = txt;
-    a.appendChild(d);
+    frag.appendChild(d);
   });
+  // Una sola mutació al contenidor: menys reflows que buidar amb innerHTML i afegir en bucle.
+  a.replaceChildren(frag);
 }
 
 function detectSounds(state) {
@@ -1265,24 +1240,79 @@ function detectSounds(state) {
 }
 
 // --- Presence / disconnect ----------------------------------------------------
-let _absenceTimer = null;
+let _absenceClaimTimer = null;
+let _absenceTickTimer = null;
+let _absenceDeadline = 0;
+/** Evita cridar `claimWinByRivalAbsence` en bucle mentre la transacció encara va. */
+let _claimMissingRivalPending = false;
+
+function clearAbsenceTimers() {
+  if (_absenceClaimTimer) {
+    clearTimeout(_absenceClaimTimer);
+    _absenceClaimTimer = null;
+  }
+  if (_absenceTickTimer) {
+    clearInterval(_absenceTickTimer);
+    _absenceTickTimer = null;
+  }
+  _absenceDeadline = 0;
+}
+
+function isActiveMatchState(st) {
+  if (!st || st.status === "game_over") return false;
+  return !(st.status === "waiting" && real(st.handNumber || OFFSET) === 0);
+}
+
+function tickAbsenceCountdown() {
+  const el = $("absenceCountdown");
+  if (!el || !_absenceDeadline) return;
+  const sec = Math.max(0, Math.ceil((_absenceDeadline - Date.now()) / 1000));
+  el.textContent = String(sec);
+}
+
 /** Evita programar diversos timeouts d’overlay / comptar victòries duplicades. */
 let _gameOverAnimScheduledFor = "";
-function checkPresence() {
-  if (!session.roomCode || session.mySeat === null) return;
+function checkPresence(state) {
+  if (!session.roomCode || session.mySeat === null) {
+    clearAbsenceTimers();
+    $("absenceBar")?.classList.add("hidden");
+    return;
+  }
+  if (!isActiveMatchState(state)) {
+    clearAbsenceTimers();
+    $("absenceBar")?.classList.add("hidden");
+    return;
+  }
   get(ref(db, `rooms/${session.roomCode}/presence/${K(other(session.mySeat))}`))
     .then((snap) => {
+      if (!session.roomCode || session.mySeat === null) return;
+      if (!isActiveMatchState(_lastState) || _lastState.status === "game_over") {
+        clearAbsenceTimers();
+        $("absenceBar")?.classList.add("hidden");
+        return;
+      }
       const p = snap.val();
       const absent = p?.absent === true;
-      const notif = $("absenceNotif");
-      if (notif) notif.classList.toggle("hidden", !absent);
-      if (absent && !_absenceTimer) {
-        _absenceTimer = setTimeout(async () => {
+      const bar = $("absenceBar");
+      if (!bar) return;
+
+      if (!absent) {
+        clearAbsenceTimers();
+        bar.classList.add("hidden");
+        return;
+      }
+
+      bar.classList.remove("hidden");
+      if (!_absenceClaimTimer) {
+        _absenceDeadline = Date.now() + 60000;
+        tickAbsenceCountdown();
+        _absenceTickTimer = setInterval(tickAbsenceCountdown, 250);
+        _absenceClaimTimer = setTimeout(async () => {
+          clearAbsenceTimers();
           await claimWinByRivalAbsence();
         }, 60000);
-      } else if (!absent && _absenceTimer) {
-        clearTimeout(_absenceTimer);
-        _absenceTimer = null;
+      } else {
+        tickAbsenceCountdown();
       }
     })
     .catch(() => {});
@@ -1291,6 +1321,12 @@ function checkPresence() {
 // --- MAIN RENDER --------------------------------------------------------------
 function renderAll(room) {
   const state = room?.state || defaultState();
+  session.roomVisibility =
+    room?.meta?.visibility === "private"
+      ? "private"
+      : room?.meta?.visibility === "public"
+        ? "public"
+        : null;
   // Fora del lobby pre-partida: amagar l'overlay ja, per si més endavant falla algun sub-render
   const preGameLobby =
     state.status === "waiting" && real(state.handNumber || OFFSET) === 0;
@@ -1304,8 +1340,30 @@ function renderAll(room) {
   resetInactivity();
   detectSounds(state);
   _lastState = state;
-  checkPresence();
+  if (state.status === "playing" && state.hand) {
+    _betweenCountdownLatch = false;
+    $("tableCdEl")?.classList.add("hidden");
+  }
+  checkPresence(state);
+  // Rival fora de `players` (Eixir): tancar partida sense esperar els 60s de presència
+  if (
+    session.mySeat !== null &&
+    session.roomCode &&
+    isActiveMatchState(state) &&
+    state.status !== "game_over" &&
+    !state.players?.[K(other(session.mySeat))]
+  ) {
+    if (!_claimMissingRivalPending) {
+      _claimMissingRivalPending = true;
+      claimWinByRivalAbsence().finally(() => {
+        _claimMissingRivalPending = false;
+      });
+    }
+  }
   renderAvatars(room);
+  if (state.status === "waiting" && real(state.handNumber || OFFSET) === 0) {
+    renderWaitingSlots(room, state);
+  }
   // Reset render cache when hand changes so new cards animate in properly
   const hKey =
     real(state.handNumber || OFFSET) + "-" + (state.hand?.mano ?? "x");
@@ -1352,14 +1410,15 @@ function renderAll(room) {
   }
   renderActions(state);
   renderLog(state);
-  const ready = bothReady(state);
+  const bothJoined = bothPlayersJoined(state);
 
   if (state.status === "game_over") {
+    _betweenCountdownLatch = false;
     stopBetween();
     stopTurnTimer();
     $("waitingOverlay").classList.add("hidden");
     const wasHidden = $("gameOverOverlay").classList.contains("hidden");
-    const animKey = `${session.roomCode}|${state.winner}|${getScore(state, session.mySeat)}-${getScore(state, other(session.mySeat))}|${state.logs?.[0]?.at ?? ""}`;
+    const animKey = `${session.roomCode}|${state.winner}|${getScore(state, session.mySeat)}-${getScore(state, other(session.mySeat))}|${state.logs?.[0]?.at ?? ""}|${state.gameEndReason || ""}`;
     if (wasHidden && animKey !== _gameOverAnimScheduledFor) {
       _gameOverAnimScheduledFor = animKey;
       const iWon = state.winner === session.mySeat;
@@ -1367,8 +1426,13 @@ function renderAll(room) {
         $("gameOverOverlay").classList.remove("hidden");
         $("goTitle").textContent = iWon ? "🏆 Has guanyat!" : "😅 Has perdut";
         $("goWinner").textContent = pName(state, state.winner) + " guanya";
+        const abandonment = state.gameEndReason === "abandonment";
         $("goScore").textContent =
-          `${getScore(state, session.mySeat)} - ${getScore(state, other(session.mySeat))}`;
+          abandonment && iWon
+            ? "Has guanyat per abandonament!"
+            : abandonment && !iWon
+              ? "Has perdut per abandonament (temps de reconnexió esgotat)."
+              : `${getScore(state, session.mySeat)} - ${getScore(state, other(session.mySeat))}`;
         if (iWon) {
           sndWin();
           startConfetti(true);
@@ -1392,54 +1456,55 @@ function renderAll(room) {
   if (state.status === "waiting") {
     stopTurnTimer();
     if (real(state.handNumber || OFFSET) === 0) {
+      _betweenCountdownLatch = false;
       stopBetween();
       $("waitingCode").textContent = session.roomCode || "-";
+      $("waitingCodeRow")?.classList.toggle(
+        "hidden",
+        session.roomVisibility === "public",
+      );
 
-      const p0ready = !!state.ready?.[K(0)]; // Host listo
-      const p1ready = !!state.ready?.[K(1)]; // Invitado listo
+      const p0ready = !!state.ready?.[K(0)];
+      const p1ready = !!state.ready?.[K(1)];
       const myReady = session.mySeat === 0 ? p0ready : p1ready;
-      const rivReady = session.mySeat === 0 ? p1ready : p0ready;
-      const rivName = pName(state, other(session.mySeat));
+      const bothFirebaseReady = p0ready && p1ready;
 
-      // --- MENSAJE PRINCIPAL DEL OVERLAY ---
-      if (!ready) {
-        // Falta que entre el segundo jugador
+      if (!bothJoined) {
         $("waitingStatus").innerHTML =
           'Esperant el segon jugador<span class="dots"></span>';
+      } else if (!bothFirebaseReady) {
+        $("waitingStatus").innerHTML =
+          'Cal que els dos confirmeu «preparat»<span class="dots"></span>';
       } else {
-        // Ya están los dos. Mostramos si el rival está listo o no.
-        $("waitingStatus").innerHTML = rivReady
-          ? `${rivName} està preparat!`
-          : `Esperant que ${rivName} estiga preparat<span class="dots"></span>`;
+        $("waitingStatus").textContent =
+          session.mySeat === 0
+            ? "Tots preparats! Pots iniciar la partida."
+            : "Tots preparats! Esperant l'amfitrió…";
       }
 
-      // --- LÓGICA POR ASIENTOS ---
       if (session.mySeat === 0) {
-        // SOY EL CREADOR (Host)
-        $("startBtn").classList.toggle("hidden", !ready); // Solo aparece si hay 2 jugadores
-
-        // El botón se deshabilita si el invitado (p1) no ha dado a "Preparat"
+        $("startBtn").classList.toggle("hidden", !bothJoined);
         const sB = $("startBtn");
-        sB.disabled = !p1ready;
-        sB.title = !p1ready ? "Falta que l'altre jugador estiga preparat" : "";
-        sB.style.opacity = !p1ready ? "0.5" : "1";
-        sB.style.cursor = !p1ready ? "not-allowed" : "pointer";
+        sB.disabled = !bothFirebaseReady;
+        sB.title = !bothFirebaseReady
+          ? "Cal que els dos jugadors estiguen preparats"
+          : "";
+        sB.style.opacity = !bothFirebaseReady ? "0.5" : "1";
+        sB.style.cursor = !bothFirebaseReady ? "not-allowed" : "pointer";
 
+        $("hostReadyBtn").classList.toggle("hidden", !bothJoined || p0ready);
         $("guestReadyBtn").classList.add("hidden");
         $("guestWaitMsg").classList.add("hidden");
       } else {
-        // SOY EL INVITADO (Guest)
         $("startBtn").classList.add("hidden");
+        $("hostReadyBtn").classList.add("hidden");
 
-        // Si NO he pulsado listo: veo el botón
-        $("guestReadyBtn").classList.toggle("hidden", myReady);
-
-        // Si SÍ he pulsado listo: veo el mensaje de espera al creador
+        $("guestReadyBtn").classList.toggle("hidden", !bothJoined || myReady);
         const gW = $("guestWaitMsg");
-        gW.classList.toggle("hidden", !myReady);
+        gW.classList.toggle("hidden", !bothJoined || !myReady);
         if (myReady) {
           gW.innerHTML =
-            'Esperant que el creador inicie la partida<span class="dots"></span>';
+            'Esperant que l\'amfitrió inicie la partida<span class="dots"></span>';
         }
       }
 
@@ -1448,7 +1513,7 @@ function renderAll(room) {
       $("waitingOverlay").classList.remove("hidden");
     } else {
       $("waitingOverlay").classList.add("hidden");
-      if (ready && betweenTimer === null)
+      if (bothJoined && betweenTimer === null && !_betweenCountdownLatch)
         startBetween(buildScoreSummary(state));
     }
     return;
@@ -1563,9 +1628,13 @@ function initChat(code) {
   unsubChat = onValue(ref(db, `rooms/${code}/chat`), (snap) => {
     const msgs = snap.val();
     const area = $("chatMessages");
-    area.innerHTML = "";
-    if (!msgs) return;
+    if (!area) return;
+    if (!msgs) {
+      area.replaceChildren();
+      return;
+    }
     const arr = Object.values(msgs).sort((a, b) => a.at - b.at);
+    const frag = document.createDocumentFragment();
     arr.forEach((m) => {
       const div = document.createElement("div");
       div.className = `chat-msg ${m.seat === session.mySeat ? "mine" : "theirs"}`;
@@ -1573,8 +1642,9 @@ function initChat(code) {
       const hh = t.getHours().toString().padStart(2, "0");
       const mm = t.getMinutes().toString().padStart(2, "0");
       div.innerHTML = `<span class="chat-author">${esc(m.name)}:</span> <span class="chat-text">${esc(m.text)}</span> <span class="chat-time">${hh}:${mm}</span>`;
-      area.appendChild(div);
+      frag.appendChild(div);
     });
+    area.replaceChildren(frag);
     area.scrollTop = area.scrollHeight;
     if (!chatOpen && arr.length > lastChatN)
       $("chatBadge").classList.remove("hidden");
@@ -1625,22 +1695,70 @@ function pickAvatar(idx) {
       ref(db, `rooms/${session.roomCode}/avatars/${K(session.mySeat)}`),
       idx,
     ).catch(() => {});
+    const w = $(`waitSlotGameAv${session.mySeat}`);
+    if (w) {
+      w.innerHTML = getAvatarImg(idx);
+      w.classList.toggle("slot-game-av-empty", !getAvatarImg(idx));
+    }
   }
 }
 // Expose globally so HTML onclick works AND attach via JS
 window.pickAvatar = pickAvatar;
-
-function getRivalAvatar() {
-  if (!session.roomRef || session.mySeat === null) return -1;
-  // Read from last known state
-  return _rivalAvatarIdx;
-}
 
 let _rivalAvatarIdx = -1;
 function getAvatarImg(idx) {
   if (idx < 0 || idx >= AVATAR_IMAGES.length) return ""; // sin avatar → vacío
   return `<img src="${AVATAR_IMAGES[idx]}" alt="Avatar">`;
 }
+
+function renderWaitingSlots(room, state) {
+  const avs = room?.avatars || {};
+  for (let seat = 0; seat <= 1; seat++) {
+    const ph = $(`waitSlotPhoto${seat}`);
+    const nm = $(`waitSlotName${seat}`);
+    const gav = $(`waitSlotGameAv${seat}`);
+    const bd = $(`waitSlotBadge${seat}`);
+    if (!ph || !nm || !gav || !bd) continue;
+
+    const pl = state?.players?.[K(seat)];
+    if (!pl) {
+      ph.src = GUEST_LOBBY_AVATAR;
+      ph.classList.add("is-empty-slot");
+      ph.alt = "";
+      nm.textContent = "—";
+      gav.innerHTML = "";
+      gav.classList.add("slot-game-av-empty");
+      bd.textContent = "Pendent...";
+      bd.dataset.state = "pendent";
+      bd.classList.remove("slot-badge-ready");
+      continue;
+    }
+    ph.classList.remove("is-empty-slot");
+    nm.textContent = pName(state, seat);
+    ph.src = lobbyPhotoForPlayer(pl);
+    ph.alt = pName(state, seat);
+
+    const idx =
+      session.mySeat === seat
+        ? myAvatar
+        : Number(avs[K(seat)] ?? -1);
+    gav.classList.remove("slot-game-av-empty");
+    gav.innerHTML = getAvatarImg(idx);
+    if (!String(gav.innerHTML).trim())
+      gav.classList.add("slot-game-av-empty");
+
+    const isReady = !!state.ready?.[K(seat)];
+    bd.classList.toggle("slot-badge-ready", isReady);
+    if (isReady) {
+      bd.textContent = "¡ESTÀ PREPARAT!";
+      bd.dataset.state = "ready";
+    } else {
+      bd.textContent = "Triant avatar...";
+      bd.dataset.state = "picking";
+    }
+  }
+}
+
 function renderAvatars(room) {
   const avs = room?.avatars || {};
   const myIdx = myAvatar; // siempre usar variable local, nunca Firebase
@@ -1665,6 +1783,9 @@ function renderAvatars(room) {
 
 let unsubMsg = null;
 export function startSession(code) {
+  // Tanca subs de sala anteriors (reconnexió / canvi de codi sense reload) per evitar callbacks duplicats i fugues.
+  detachRoomListeners();
+
   session.roomCode = code;
   session.roomRef = ref(db, `rooms/${code}`);
 
@@ -1675,26 +1796,15 @@ export function startSession(code) {
       () => {},
     );
   }
-  if (unsubStateStatus) {
-    unsubStateStatus();
-    unsubStateStatus = null;
-  }
-  if (unsubGame) unsubGame();
-
-  let chatRivalActivado = false; // ← flag para suscribir solo una vez
 
   unsubGame = onValue(session.roomRef, (snap) => {
     const data = snap.val();
     if (!data) {
       if (!session.roomCode) return;
       detachRoomListeners();
-      stopBetween();
-      stopTurnTimer();
       clearTimeout(inactTimer);
       inactTimer = null;
-      session.roomRef = null;
-      session.roomCode = null;
-      session.mySeat = null;
+      resetSession();
       localStorage.removeItem(LS.room);
       localStorage.removeItem(LS.seat);
       $("waitingOverlay")?.classList.add("hidden");
@@ -1712,12 +1822,6 @@ export function startSession(code) {
     } else {
       $("screenLobby").classList.add("hidden");
       $("screenGame").classList.remove("hidden");
-
-      // ← Activar escucha del rival solo la primera vez
-      if (!chatRivalActivado) {
-        chatRivalActivado = true;
-        window.activarChatRival();
-      }
     }
 
     renderAll(data);
@@ -1788,6 +1892,7 @@ function clearAuthErr() {
 }
 
 async function createRoom() {
+  const vis = _pendingCreateVisibility === "private" ? "private" : "public";
   const name = normName($("nameInput")?.value);
   const code =
     sanitize($("roomInput")?.value) ||
@@ -1808,16 +1913,21 @@ async function createRoom() {
     if (inactiva || finalizada || sinJugadores) {
       await remove(r);
     } else {
+      _pendingCreateVisibility = "public";
       setLobbyMsg("Sala ja existeix.", "err");
       return;
     }
   }
   const init = defaultState();
   init.roomCode = code;
-  init.players[K(0)] = { name, clientId: uid() };
+  init.players[K(0)] = {
+    name,
+    clientId: uid(),
+    ...authPlayerExtras(),
+  };
   init.logs = [{ text: `Sala creada per ${name}.`, at: Date.now() }];
   await set(r, {
-    meta: { createdAt: Date.now(), roomCode: code },
+    meta: { createdAt: Date.now(), roomCode: code, visibility: vis },
     state: init,
     lastActivity: Date.now(),
   });
@@ -1826,6 +1936,7 @@ async function createRoom() {
   if ($("roomInput")) $("roomInput").value = code;
   set(ref(db, `rooms/${code}/avatars/${K(0)}`), myAvatar).catch(() => {});
   setLobbyMsg(`Sala ${code} creada.`, "good");
+  _pendingCreateVisibility = "public";
   startSession(code);
 }
 
@@ -1846,12 +1957,13 @@ async function joinRoom() {
       if (!st.players) st.players = { [K(0)]: null, [K(1)]: null };
       const p0 = st.players[K(0)],
         p1 = st.players[K(1)];
-      if (p0 && p1) return cur;
+      if (p0 && p1) return undefined;
+      const extra = authPlayerExtras();
       if (!p0) {
-        st.players[K(0)] = { name, clientId: uid() };
+        st.players[K(0)] = { name, clientId: uid(), ...extra };
         pushLog(st, `${name} entra com J0.`);
       } else {
-        st.players[K(1)] = { name, clientId: uid() };
+        st.players[K(1)] = { name, clientId: uid(), ...extra };
         pushLog(st, `${name} entra com J1.`);
       }
       cur.lastActivity = Date.now();
@@ -1860,7 +1972,7 @@ async function joinRoom() {
     { applyLocally: false },
   );
   if (!result.committed) {
-    setLobbyMsg("No es pot entrar. Sala plena o inexistent.", "err");
+    setLobbyMsg("Sala completa.", "err");
     return;
   }
   const fs = result.snapshot.val()?.state;
@@ -1881,35 +1993,57 @@ async function joinRoom() {
   startSession(code);
 }
 async function leaveRoom() {
-  stopBetween();
-  stopTurnTimer();
+  detachRoomListeners();
+  clearTimeout(inactTimer);
+  inactTimer = null;
   if (session.roomRef && session.mySeat !== null) {
     try {
       const snap = await get(session.roomRef);
       const data = snap.val();
-      const estado = data?.state?.status;
-      const otroJugador = data?.state?.players?.[K(other(session.mySeat))];
-      const hn = data?.state?.handNumber;
-      const waitingPreLobby =
-        estado === "waiting" && real(hn ?? OFFSET) === 0;
-      const hostTancaSalaEspera =
-        waitingPreLobby && session.mySeat === 0;
+      const playerRef = ref(
+        db,
+        `rooms/${session.roomCode}/state/players/${K(session.mySeat)}`,
+      );
 
-      // Borrar sala entera si acabó, si el rival ja no és, o si el creador eix de la sala d'espera
-      if (
-        estado === "game_over" ||
-        !otroJugador ||
-        hostTancaSalaEspera
-      ) {
+      if (!data) {
         await remove(session.roomRef);
       } else {
-        // Solo te vas tú, el rival sigue — quita tu jugador
-        await remove(
-          ref(
-            db,
-            `rooms/${session.roomCode}/state/players/${K(session.mySeat)}`,
-          ),
-        );
+        const st = data.state;
+        const estado = st?.status;
+        const otroJugador = st?.players?.[K(other(session.mySeat))];
+        const hn = st?.handNumber;
+        const waitingPreLobby =
+          estado === "waiting" && real(hn ?? OFFSET) === 0;
+        const hostTancaSalaEspera =
+          waitingPreLobby && session.mySeat === 0;
+
+        const gameEndReason =
+          st?.gameEndReason ?? _lastState?.gameEndReason ?? null;
+        const winnerSeat = st?.winner ?? _lastState?.winner;
+        const gameOverFb = estado === "game_over";
+        const gameOverLocal = _lastState?.status === "game_over";
+        const victoriaPerAbandonament =
+          gameEndReason === "abandonment" &&
+          (gameOverFb || gameOverLocal) &&
+          (winnerSeat === 0 || winnerSeat === 1);
+
+        // Victòria per abandonament: només el guanyador esborra la sala sencera
+        // (el perdedor només es treu de `players` perquè el guanyador puga veure l'overlay).
+        if (victoriaPerAbandonament) {
+          if (session.mySeat === winnerSeat) {
+            await remove(session.roomRef);
+          } else {
+            await remove(playerRef);
+          }
+        } else if (
+          estado === "game_over" ||
+          !otroJugador ||
+          hostTancaSalaEspera
+        ) {
+          await remove(session.roomRef);
+        } else {
+          await remove(playerRef);
+        }
       }
     } catch (e) {}
   }
@@ -1930,18 +2064,37 @@ function loadRoomList() {
     const open = [];
     if (rooms) {
       for (const [code, room] of Object.entries(rooms)) {
+        if (room?.meta?.visibility === "private") continue;
         const st = room?.state;
-        if (!st || st.status === "game_over") continue;
+        if (!st) continue;
         const p0 = st.players?.[K(0)];
+        if (!p0) continue;
         const p1 = st.players?.[K(1)];
-        if (p0 && !p1) {
+        const nPlayers = (p0 ? 1 : 0) + (p1 ? 1 : 0);
+        const preGameLobby =
+          st.status === "waiting" && real(st.handNumber ?? OFFSET) === 0;
+        // Una sola persona i la partida ja havia començat: no és reclutament, no es mostra
+        if (!p1 && !preGameLobby) continue;
+        if (!p1 && preGameLobby) {
           const inactive = Date.now() - (room.lastActivity || 0) > 3600000;
-          if (!inactive) open.push({ code, host: p0.name });
+          if (inactive) continue;
         }
+        open.push({
+          code,
+          host: p0.name,
+          hostPhoto: lobbyPhotoForPlayer(p0),
+          nPlayers,
+          estado: roomListEstadoLabel(st),
+        });
       }
     }
     open.sort((a, b) => a.code.localeCompare(b.code));
-    const newKey = open.map((r) => r.code + r.host).join("|");
+    const newKey = open
+      .map(
+        (r) =>
+          `${r.code}|${r.host}|${r.hostPhoto}|${r.nPlayers}|${r.estado}`,
+      )
+      .join(";");
     if (newKey === _lastRoomListKey) return;
     _lastRoomListKey = newKey;
     listEl.innerHTML = "";
@@ -1950,18 +2103,64 @@ function loadRoomList() {
       return;
     }
     open.forEach((r) => {
-      const row = document.createElement("div");
-      row.className = "rl-row";
-      row.innerHTML = `<div class="rl-info"><span class="rl-code">${r.code}</span><span class="rl-host">${r.host}</span></div><button class="lbtn lbtn-primary rl-join">Entrar</button>`;
-      row.querySelector(".rl-join").addEventListener("click", () => {
+      const card = document.createElement("div");
+      card.className = "rl-card";
+      const left = document.createElement("div");
+      left.className = "rl-card-left";
+      const img = document.createElement("img");
+      img.className = "rl-creator-photo";
+      img.src = r.hostPhoto;
+      img.alt = "";
+      img.width = 44;
+      img.height = 44;
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      left.appendChild(img);
+      const body = document.createElement("div");
+      body.className = "rl-card-body";
+      const cr = document.createElement("div");
+      cr.className = "rl-creator-line";
+      cr.append("Creador: ");
+      const nick = document.createElement("strong");
+      nick.className = "rl-creator-nick";
+      nick.textContent = r.host;
+      cr.appendChild(nick);
+      const jg = document.createElement("div");
+      jg.className = "rl-meta-line";
+      jg.textContent = `Jugadors: ${r.nPlayers}/2`;
+      const stEl = document.createElement("div");
+      stEl.className = "rl-meta-line rl-estado";
+      stEl.textContent = r.estado;
+      body.appendChild(cr);
+      body.appendChild(jg);
+      body.appendChild(stEl);
+      const join = document.createElement("button");
+      join.type = "button";
+      join.className = "lbtn lbtn-primary rl-join";
+      join.textContent = "Entrar";
+      const ple = r.nPlayers >= 2;
+      if (ple) join.classList.add("rl-join-disabled");
+      join.style.opacity = ple ? "0.55" : "1";
+      join.style.cursor = ple ? "not-allowed" : "pointer";
+      join.title = ple ? "Sala completa" : "";
+      join.addEventListener("click", () => {
+        if (ple) {
+          setLobbyMsg("Sala completa.", "err");
+          return;
+        }
         const ri = $("roomInput");
         if (ri) ri.value = r.code;
         joinRoom();
       });
-      listEl.appendChild(row);
+      card.appendChild(left);
+      card.appendChild(body);
+      card.appendChild(join);
+      listEl.appendChild(card);
     });
   });
 }
+const ORPHAN_ROOM_MAX_MS = 2 * 60 * 1000; // sala trencada (1 jugador fora del lobby inicial)
+
 async function limpiarSalasAntiguas() {
   try {
     const snap = await get(ref(db, "rooms"));
@@ -1970,9 +2169,20 @@ async function limpiarSalasAntiguas() {
     const borrados = [];
     snap.forEach((child) => {
       const data = child.val();
-      const inactiva = ahora - (data.lastActivity || 0) > 30 * 60 * 1000; // 30 min
-      const finalizada = data.state?.status === "game_over";
-      if (inactiva || finalizada) {
+      const st = data.state;
+      const la = data.lastActivity || 0;
+      const inactiva = ahora - la > 30 * 60 * 1000; // 30 min
+      const finalizada = st?.status === "game_over";
+      const preGameLobby =
+        st?.status === "waiting" && real(st?.handNumber ?? OFFSET) === 0;
+      const p0 = st?.players?.[K(0)];
+      const p1 = st?.players?.[K(1)];
+      const n = (p0 ? 1 : 0) + (p1 ? 1 : 0);
+      const salaTrencada =
+        n === 1 &&
+        !preGameLobby &&
+        ahora - la > ORPHAN_ROOM_MAX_MS;
+      if (inactiva || finalizada || salaTrencada) {
         borrados.push(remove(ref(db, `rooms/${child.key}`)));
       }
     });
@@ -2056,7 +2266,9 @@ function showBubble(bubbleId, text) {
   clearTimeout(b._hideTimer);
   b._hideTimer = setTimeout(() => b.classList.add("hidden"), 4000);
 }
+window.showBubble = showBubble;
 
+// Frases ràpides: un sol canal RTDB `phraseOut/{_0|_1}` (enviament + `initPhraseListener` per rebre).
 function sendPhrase(text) {
   if (!_canChat || !session.roomCode) return;
 
@@ -2085,16 +2297,24 @@ function initPhraseListener(code) {
   if (_unsubPhrases) _unsubPhrases();
   if (session.mySeat !== 0 && session.mySeat !== 1) return;
   const rivalKey = K(other(session.mySeat));
-  _unsubPhrases = onValue(ref(db, `rooms/${code}/phraseOut/${rivalKey}`), (snap) => {
-    const data = snap.val();
-    if (!data || !data.msg) return;
-    const age = Date.now() - (data.t || 0);
-    if (age > 8000 || age < -2000) return;
-    showBubble("rivalBubble", data.msg);
-  });
+  _unsubPhrases = onValue(
+    ref(db, `rooms/${code}/phraseOut/${rivalKey}`),
+    (snap) => {
+      const data = snap.val();
+      if (!data || !data.msg) return;
+      const age = Date.now() - (data.t || 0);
+      if (age > 8000 || age < -2000) return;
+      showBubble("rivalBubble", data.msg);
+    },
+  );
 }
 
-function detachRoomListeners() {
+export function detachRoomListeners() {
+  stopBetween();
+  stopTurnTimer();
+  clearAbsenceTimers();
+  _claimMissingRivalPending = false;
+  $("absenceBar")?.classList.add("hidden");
   if (unsubGame) {
     unsubGame();
     unsubGame = null;
@@ -2118,22 +2338,58 @@ function detachRoomListeners() {
 }
 
 // --- Boot: initApp ------------------------------------------------------------
+function initLegalModal() {
+  const modal = $("legalModal");
+  const openBtn = $("legalModalOpen");
+  const closeBtn = $("legalModalClose");
+  const backdrop = $("legalModalBackdrop");
+  if (!modal || !openBtn || !closeBtn) return;
+
+  const show = () => {
+    modal.classList.remove("hidden");
+    modal.setAttribute("aria-hidden", "false");
+    closeBtn.focus();
+  };
+  const hide = () => {
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+    openBtn.focus();
+  };
+
+  openBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    show();
+  });
+  closeBtn.addEventListener("click", () => hide());
+  backdrop?.addEventListener("click", () => hide());
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) hide();
+  });
+}
+
 export function initApp() {
   configureActions({ renderAll });
   initAuthFlow();
+  initLegalModal();
   limpiarSalasAntiguas(); // sin await, que corra en segundo plano
   $("btn-crear-publica")?.addEventListener("click", () => {
+    _pendingCreateVisibility = "public";
     if ($("roomInput")) $("roomInput").value = "";
     createRoom();
   });
   $("btn-crear-privada")?.addEventListener("click", () => {
+    _pendingCreateVisibility = "private";
     const raw = window.prompt(
       "Introdueix el codi de la sala privada (4–8 caràcters alfanumèrics):",
       "",
     );
-    if (raw == null) return;
+    if (raw == null) {
+      _pendingCreateVisibility = "public";
+      return;
+    }
     const code = sanitize(raw);
     if (code.length < 2) {
+      _pendingCreateVisibility = "public";
       setLobbyMsg("Codi massa curt.", "err");
       return;
     }
@@ -2173,11 +2429,10 @@ export function initApp() {
     if (u?.isAnonymous && u.uid) {
       sessionStorage.removeItem(ANON_NICK_STORAGE_PREFIX + u.uid);
     }
+    if (session.roomRef) detachRoomListeners();
+    resetSession();
     localStorage.removeItem(LS.room);
     localStorage.removeItem(LS.seat);
-    session.roomCode = null;
-    session.roomRef = null;
-    session.mySeat = null;
     try {
       await signOut(auth);
     } catch (err) {
@@ -2191,26 +2446,44 @@ export function initApp() {
     await leaveRoom();
   });
   $("goRematchBtn")?.addEventListener("click", requestRematch);
-  // Menú de frases
-  $("myAvatarContainer")?.addEventListener("click", togglePhraseMenu);
-  $("myAvatarContainer")?.addEventListener("touchend", (e) => {
+  // Menú de frases: el propi avatar i el del rival (mateixa acció; abans el clic al rival es propagava al document i tancava el menú a l'instant)
+  const onPhraseAvatarTap = (e) => {
     e.preventDefault();
     togglePhraseMenu();
-  });
+  };
+  $("myAvatarContainer")?.addEventListener("click", togglePhraseMenu);
+  $("myAvatarContainer")?.addEventListener("touchend", onPhraseAvatarTap);
+  $("rivalAvatarContainer")?.addEventListener("click", togglePhraseMenu);
+  $("rivalAvatarContainer")?.addEventListener("touchend", onPhraseAvatarTap);
 
   // Cerrar al hacer click fuera
   document.addEventListener("click", (e) => {
-    if (!$("myAvatarContainer")?.contains(e.target)) {
+    const myW = $("myAvatarContainer");
+    const rivW = $("rivalAvatarContainer");
+    if (!myW?.contains(e.target) && !rivW?.contains(e.target)) {
       $("myPhraseMenu")?.classList.add("hidden");
     }
   });
 
-  $("guestReadyBtn")?.addEventListener("click", async () => {
+  async function onPlayerReadyClick() {
+    if (_actionInProgress) return;
+    _actionInProgress = true;
     sndBtn();
-    $("guestReadyBtn").classList.add("hidden");
-    $("guestWaitMsg").classList.remove("hidden");
-    await guestReady();
-  });
+    try {
+      await guestReady();
+    } finally {
+      setTimeout(() => {
+        _actionInProgress = false;
+        get(session.roomRef)
+          .then((snap) => {
+            if (snap?.val()) renderAll(snap.val());
+          })
+          .catch(() => {});
+      }, 200);
+    }
+  }
+  $("guestReadyBtn")?.addEventListener("click", onPlayerReadyClick);
+  $("hostReadyBtn")?.addEventListener("click", onPlayerReadyClick);
 
   $("startBtn").addEventListener("click", async () => {
     sndBtn();
